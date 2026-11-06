@@ -5,7 +5,7 @@
 **Candidate:** `v0.2.1-rc1` (six regression tests passed in CI; not designated stable). **Goal:** counterfactual probes cannot modify the live simulation's disk artifacts.  
 **Historical baseline:** `Worldheart simulator` (`v0.2-primordial`), preserved byte-for-byte in the same repository.  
 **Latest changes:** new candidate script with per-fork disk isolation, regression tests and GitHub Actions.  
-**Next priorities:** review and integrate the candidate, check user-representative legacy checkpoint recovery, then consider stable promotion only after release criteria are met.  
+**Next priorities:** check trusted historical checkpoint recovery and migration/rollback notes, then consider stable promotion only after release criteria are met. [Candidate PR #1 was merged](https://github.com/levelinglucy/Worldheart/pull/1).  
 **Links:** [Changelog](./CHANGELOG.md) · [README](./README.md) · [Tests](./tests/test_probe_isolation.py).
 
 ## How the original code works
@@ -39,13 +39,13 @@ The counterfactual probe uses `world.fork(disk_writes_enabled=False)` for both e
 | Stage | Intended result | Acceptance | Status |
 | --- | --- | --- | --- |
 | v0.2 historical baseline | Preserve existing deterministic simulator | Original source remains unchanged | Preserved |
-| v0.2.1-rc1 candidate | Disk-isolated counterfactual probe | Baseline issue reproduced; fork leaves disk and live state unchanged across 12 steps; ordinary saves and seeded dynamics pass | CI-validated candidate, not stable |
+| v0.2.1-rc1 candidate | Disk-isolated counterfactual probe | Baseline issue reproduced; fork leaves disk and live state unchanged across 12 steps; ordinary saves and seeded dynamics pass | Merged on main, CI-validated candidate, not stable |
 | v0.2.1 stable (proposed) | Safe recommended entry point | Exact candidate tests pass, inspect diff and compatibility, document limitations and recovery | Planned, not released |
 | Future (optional) | Better portable checkpoints | Threat model, migration and replay equivalence tests | Idea only |
 
 ## Continuation checklist
 
-1. Review the complete candidate diff and PR/merge readiness while retaining `Worldheart simulator`.
+1. Confirm the merged candidate can resume trusted user-representative v0.2 checkpoint files while retaining `Worldheart simulator`.
 2. Exercise actual user-representative historical checkpoint recovery before promising compatibility beyond the simulated missing-field case.
 3. Decide whether the validated candidate merits stable promotion; tag/release only after reviewing required checks and limitations.
 
