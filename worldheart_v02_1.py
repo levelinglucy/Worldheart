@@ -2,7 +2,7 @@
 # WORLDHEART v0.2.1-rc1 — PRIMORDIAL FIELD (probe isolation candidate)
 # Developer summary: prevents counterfactual probes from writing world files.
 # Prior baseline: "Worldheart simulator" (v0.2). More: DEV_NOTES.md.
-# Next: validate original-vs-candidate regression, then review promotion.
+# Next: test real historical checkpoint recovery; consider stable promotion.
 # A self-contained emergent computational petri dish for Python / Pythonista.
 #
 # Design:
