@@ -2,10 +2,10 @@
 
 ## Development summary
 
-**Candidate:** `v0.2.1-rc1` (not yet designated stable). **Goal:** counterfactual probes cannot modify the live simulation's disk artifacts.  
+**Candidate:** `v0.2.1-rc1` (six regression tests passed in CI; not designated stable). **Goal:** counterfactual probes cannot modify the live simulation's disk artifacts.  
 **Historical baseline:** `Worldheart simulator` (`v0.2-primordial`), preserved byte-for-byte in the same repository.  
 **Latest changes:** new candidate script with per-fork disk isolation, regression tests and GitHub Actions.  
-**Next priorities:** verify CI on the final candidate revision, check a longer-horizon replay, then promote only after candidate criteria are met.  
+**Next priorities:** review and integrate the candidate, check user-representative legacy checkpoint recovery, then consider stable promotion only after release criteria are met.  
 **Links:** [Changelog](./CHANGELOG.md) · [README](./README.md) · [Tests](./tests/test_probe_isolation.py).
 
 ## How the original code works
@@ -32,22 +32,22 @@ The counterfactual probe uses `world.fork(disk_writes_enabled=False)` for both e
 
 **Trade-offs:** Adds a small state field and guards several I/O paths; any future disk output needs to respect the guard. Explicit `fork()` without an argument is still allowed to persist, maintaining compatibility but requiring future experimental callers to opt out. Reconsider a dedicated observer/storage abstraction if new disk effects proliferate, or a safer portable data format if untrusted-source interoperability becomes a product requirement.
 
-**Evidence:** The candidate tests include legacy reproduction, checkpoint-and-journal byte comparisons, in-memory state equality, no fossil artifacts, and ordinary-save compatibility. Only mark CI as confirmed when the exact relevant GitHub Actions job has passed.
+**Evidence:** The candidate tests include legacy reproduction, checkpoint-and-journal byte comparisons, in-memory state equality, no fossil artifacts, and ordinary-save compatibility. The expanded six-test suite passed in [GitHub Actions run 42174740503](https://github.com/levelinglucy/Worldheart/actions/runs/42174740503), including a twelve-step multi-checkpoint horizon and seeded metric parity with the historical source. This does not establish safety for untrusted pickle checkpoints.
 
 ## Roadmap and release gates
 
 | Stage | Intended result | Acceptance | Status |
 | --- | --- | --- | --- |
 | v0.2 historical baseline | Preserve existing deterministic simulator | Original source remains unchanged | Preserved |
-| v0.2.1-rc1 candidate | Disk-isolated counterfactual probe | Regression demonstrates baseline issue; fork leaves checkpoint, log, fossil files and live state unchanged; normal saves work | Candidate, validation under way |
+| v0.2.1-rc1 candidate | Disk-isolated counterfactual probe | Baseline issue reproduced; fork leaves disk and live state unchanged across 12 steps; ordinary saves and seeded dynamics pass | CI-validated candidate, not stable |
 | v0.2.1 stable (proposed) | Safe recommended entry point | Exact candidate tests pass, inspect diff and compatibility, document limitations and recovery | Planned, not released |
 | Future (optional) | Better portable checkpoints | Threat model, migration and replay equivalence tests | Idea only |
 
 ## Continuation checklist
 
-1. Verify GitHub Actions on the final candidate commit and inspect failures or warnings.
-2. Independently exercise a probe that crosses multiple automatic checkpoint boundaries and observe all filesystem artifacts; validate replay consistency and metrics.
-3. If checks pass, review a promotion path for the candidate without deleting or overwriting `Worldheart simulator`. Label stable only after the actual promotion is performed.
+1. Review the complete candidate diff and PR/merge readiness while retaining `Worldheart simulator`.
+2. Exercise actual user-representative historical checkpoint recovery before promising compatibility beyond the simulated missing-field case.
+3. Decide whether the validated candidate merits stable promotion; tag/release only after reviewing required checks and limitations.
 
 **Design questions:** Should a dedicated persistence backend replace scattered file calls in a later feature version? Should saved games move from pickle to a versioned, validated structured format? Neither is required to make this specific probe fix.
 
