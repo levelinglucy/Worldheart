@@ -19,10 +19,10 @@ Changes are listed newest first. A version number in this document does not by i
 The old probe could overwrite the user's latest checkpoint during automatic saves and append its private events to the live-world event log. Per-instance disk isolation was chosen over global save-directory switching to prevent accidental crossover without disrupting normal checkpoint behaviour. See [Engineering decision 001](./DEV_NOTES.md#engineering-decision-001--per-instance-disk-isolation).
 
 ### Validation and known limits
-The expanded suite passed **6/6 tests** in [GitHub Actions run 42174740503](https://github.com/levelinglucy/Worldheart/actions/runs/42174740503), checking a 12-step probe across repeated save boundaries and seeded metric parity with v0.2. The candidate remains unpromoted; the suite proves only the specific cases exercised. The pickle checkpoint format remains unsafe for untrusted files and is outside this patch.
+The expanded suite passed **6/6 tests** in [GitHub Actions run 42174740503](https://github.com/levelinglucy/Worldheart/actions/runs/42174740503), checking a 12-step probe across repeated save boundaries and seeded metric parity with v0.2. [PR #1](https://github.com/levelinglucy/Worldheart/pull/1) merged the candidate on 2026-11-06 (squash commit [8c626b2](https://github.com/levelinglucy/Worldheart/commit/8c626b2edd1dfb2424aff9ea60623a1b1cec945b)). The candidate remains **not promoted to stable**; the suite proves only the specific cases exercised. The pickle checkpoint format remains unsafe for untrusted files and is outside this patch.
 
 ### Release next actions
-Review the final PR/merge, check real historical checkpoint recovery and assess promotion criteria before calling v0.2.1 stable. Historical baseline is recoverable via Git history and its unchanged file. No stable version or GitHub Release has been published by this entry.
+Check real historical checkpoint recovery, document migration/rollback and assess promotion criteria before calling v0.2.1 stable. Historical baseline is recoverable via Git history and its unchanged file. No stable version or GitHub Release has been published by this entry.
 
 ## Earlier history
 
