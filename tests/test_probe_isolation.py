@@ -102,5 +102,34 @@ class CounterfactualIsolationTests(unittest.TestCase):
             self.assertTrue(Path(world.save()).is_file())
 
 
+    def test_multicheckpoint_horizon_preserves_disk_and_live_state(self):
+        """Cross several would-be auto-save boundaries without external writes."""
+        with temp_workdir():
+            candidate.CHECKPOINT_EVERY = 3
+            candidate.METRICS_EVERY = 1
+            world = candidate.World(seed=104)
+            world.save()
+            data_dir = Path(candidate.SAVE_DIR)
+            before = {p.name: p.read_bytes() for p in data_dir.iterdir()}
+            in_memory = pickle.dumps(world)
+            probe = candidate.counterfactual_probe(world, steps=12)
+            self.assertEqual(probe["steps"], 12)
+            self.assertEqual(in_memory, pickle.dumps(world))
+            self.assertEqual(before, {p.name: p.read_bytes() for p in data_dir.iterdir()})
+
+    def test_seeded_transitions_remain_equivalent_to_original(self):
+        """The IO fix must not change ordinary VM evolution or observer metrics."""
+        with temp_workdir():
+            legacy.CHECKPOINT_EVERY = 0
+            candidate.CHECKPOINT_EVERY = 0
+            old = legacy.World(seed=105)
+            new = candidate.World(seed=105)
+            self.assertEqual(old.metrics(), new.metrics())
+            for _ in range(12):
+                old.transition()
+                new.transition()
+            self.assertEqual(old.metrics(), new.metrics())
+
+
 if __name__ == "__main__":
     unittest.main()
