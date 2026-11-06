@@ -4,13 +4,13 @@ A self-contained, deterministic computational ecology for Python and Pythonista.
 
 ## Development summary
 
-**Current release stage:** `v0.2.1-rc1` — **CI-validated candidate, not yet a stable release**.  
+**Current release stage:** `v0.2.1-rc1` — **CI-validated candidate integrated on main, not a stable release**.  
 **Stable historical source:** [Worldheart simulator](./Worldheart%20simulator) (`v0.2-primordial`, unchanged).  
 **Current goal:** Preserve the original universe and its disk artifacts during counterfactual experiments.
 
 **Latest candidate changes:** [worldheart_v02_1.py](./worldheart_v02_1.py) isolates probe forks from automatic checkpoint, event-log and anomaly-fossil writes; adds explicit refusal of manual saves from private forks. It includes regression tests and an automated test workflow. No original simulation source was overwritten.
 
-**Next steps:** (1) review and integrate the validated candidate without overwriting legacy source; (2) check checkpoint recovery on user-representative saved worlds; (3) decide whether to promote a stable v0.2.1 release.  
+**Next steps:** (1) check checkpoint recovery on trusted representative v0.2 saves; (2) confirm migration/rollback instructions; (3) decide whether to tag and promote stable v0.2.1. [Candidate PR #1 was merged](https://github.com/levelinglucy/Worldheart/pull/1).  
 **Known limitation:** Old checkpoint files use Python pickle and **must only be loaded from trusted sources**. This candidate does not change the save format.
 
 [Full changelog](./CHANGELOG.md) · [Developer notes, decisions and roadmap](./DEV_NOTES.md) · [Regression tests](./tests/test_probe_isolation.py)
