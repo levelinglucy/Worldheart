@@ -5,8 +5,9 @@
 **Candidate:** `v0.2.1-rc1` (six regression tests passed in CI; not designated stable). **Goal:** counterfactual probes cannot modify the live simulation's disk artifacts.  
 **Historical baseline:** `Worldheart simulator` (`v0.2-primordial`), preserved byte-for-byte in the same repository.  
 **Latest changes:** new candidate script with per-fork disk isolation, regression tests and GitHub Actions.  
-**Next priorities:** check trusted historical checkpoint recovery and migration/rollback notes, then consider stable promotion only after release criteria are met. [Candidate PR #1 was merged](https://github.com/levelinglucy/Worldheart/pull/1).  
-**Links:** [Changelog](./CHANGELOG.md) · [README](./README.md) · [Tests](./tests/test_probe_isolation.py).
+**Latest recovery validation:** a genuine v0.2 CLI checkpoint generated in an isolated interpreter was resumed and re-saved by the candidate, with and without a counterfactual probe. **8/8 tests passed** on [the compatibility branch](https://github.com/levelinglucy/Worldheart/actions/runs/42181165055). This does not represent an actual user save or Pythonista device.  
+**Next priorities:** test a trusted in-the-wild checkpoint in a disposable copy where available, verify rollback and assess the stable release gate. [Candidate PR #1 was merged](https://github.com/levelinglucy/Worldheart/pull/1).  
+**Links:** [Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery guide](./docs/RECOVERY.md) · [Probe tests](./tests/test_probe_isolation.py) · [CLI compatibility tests](./tests/test_legacy_cli_recovery.py).
 
 ## How the original code works
 
@@ -34,20 +35,30 @@ The counterfactual probe uses `world.fork(disk_writes_enabled=False)` for both e
 
 **Evidence:** The candidate tests include legacy reproduction, checkpoint-and-journal byte comparisons, in-memory state equality, no fossil artifacts, and ordinary-save compatibility. The expanded six-test suite passed in [GitHub Actions run 42174740503](https://github.com/levelinglucy/Worldheart/actions/runs/42174740503), including a twelve-step multi-checkpoint horizon and seeded metric parity with the historical source. This does not establish safety for untrusted pickle checkpoints.
 
+## Engineering decision 002 — cross-version CLI compatibility evidence
+
+**Problem:** A fabricated old object with the new flag removed is not equivalent to a real legacy checkpoint. Python pickle stores class references such as `__main__.World`; changing how a script is imported can hide recovery failures.
+
+**Options:** (A) keep only the simulated missing-field test; (B) import the historical script as a test module; (C) execute the unchanged v0.2 CLI as a separate process and resume with the candidate in another process. **Chosen:** C, with disposable directories and trusted locally generated fixtures. This exercises the actual script-entry-point class identity and normal save/recovery prompts, with no external checkpoint input.
+
+**What is tested:** successful old-CLI resume, new save, no unexpected disk artifacts, an expected quit event, and exact candidate disk-artifact parity between matched control and counterfactual runs. The first test revision incorrectly required original and reserialized pickle streams to match byte-for-byte; [CI run 42180986385](https://github.com/levelinglucy/Worldheart/actions/runs/42180986385) failed that over-strict assumption in both cases. A pickle roundtrip need not be canonically byte-identical, so the test was corrected to compare **the same historical input under candidate control vs candidate probe**; [8/8 tests passed](https://github.com/levelinglucy/Worldheart/actions/runs/42181165055).
+
+**Remaining uncertainty:** This is the published v0.2 CLI's generated format, not an in-the-wild saved game or Pythonista-specific test. The candidate still uses unsafe-for-untrusted-input `pickle`. A future portable structured checkpoint format would need a separate threat model and migration tests; see [recovery/rollback guidance](./docs/RECOVERY.md). Stable status remains unassigned.
+
 ## Roadmap and release gates
 
 | Stage | Intended result | Acceptance | Status |
 | --- | --- | --- | --- |
 | v0.2 historical baseline | Preserve existing deterministic simulator | Original source remains unchanged | Preserved |
 | v0.2.1-rc1 candidate | Disk-isolated counterfactual probe | Baseline issue reproduced; fork leaves disk and live state unchanged across 12 steps; ordinary saves and seeded dynamics pass | Merged on main, CI-validated candidate, not stable |
-| v0.2.1 stable (proposed) | Safe recommended entry point | Exact candidate tests pass, inspect diff and compatibility, document limitations and recovery | Planned, not released |
+| v0.2.1 stable (proposed) | Safe recommended entry point | Exact candidate tests pass; authentic old-CLI recovery and rollback are documented; check a trusted user save/Pythonista if available; assess compatibility limits | Planned, not released |
 | Future (optional) | Better portable checkpoints | Threat model, migration and replay equivalence tests | Idea only |
 
 ## Continuation checklist
 
-1. Confirm the merged candidate can resume trusted user-representative v0.2 checkpoint files while retaining `Worldheart simulator`.
-2. Exercise actual user-representative historical checkpoint recovery before promising compatibility beyond the simulated missing-field case.
-3. Decide whether the validated candidate merits stable promotion; tag/release only after reviewing required checks and limitations.
+1. **Completed in an isolated CI fixture:** run the unchanged v0.2 program as `__main__`, create a real-format checkpoint, then resume/re-save it through the candidate CLI; compare control with `c` probe. Both compatibility tests and all six existing tests passed.
+2. **Pending:** check a trusted save from actual use (and Pythonista, if available) in a disposable directory, without ever loading untrusted pickle. Follow [the recovery and rollback guide](./docs/RECOVERY.md).
+3. Recheck the precise candidate revision, review release limitations and decide whether to promote v0.2.1; preserve the old script and a recoverable backup.
 
 **Design questions:** Should a dedicated persistence backend replace scattered file calls in a later feature version? Should saved games move from pickle to a versioned, validated structured format? Neither is required to make this specific probe fix.
 

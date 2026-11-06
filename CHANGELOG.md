@@ -2,6 +2,21 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
+## 2026-11-06 — v0.2.1-rc1 recovery follow-up (candidate, not stable)
+
+### Tests
+- Added [two end-to-end historical CLI recovery tests](./tests/test_legacy_cli_recovery.py). They execute the unchanged v0.2 script as a real program to create a genuine old-format `__main__.World` pickle checkpoint in a temporary directory, then execute the v0.2.1 candidate to resume and re-save it.
+- The probe test compares the exact same legacy fixture under candidate **control** and candidate **counterfactual probe**, verifying matching final disk artifacts and no additional probe journal/fossil outputs; the normal quit adds one expected checkpoint event.
+- **8/8 tests passed** in [GitHub Actions run 42181165055](https://github.com/levelinglucy/Worldheart/actions/runs/42181165055). This validates generated legacy CLI saves only, not actual user/Pythonista checkpoints.
+
+### Developer documentation
+- Added [trusted recovery and rollback instructions](./docs/RECOVERY.md), including copy-first practice, checkpoint trust boundary, disposable test directory and fallback to the historical script.
+- Updated the summary, roadmap and [decision 002](./DEV_NOTES.md#engineering-decision-002--cross-version-cli-compatibility-evidence) with explicit release limitations and continuation steps.
+
+### Correction and release status
+- The initial recovery test compared old and new pickled byte streams directly and failed in [CI run 42180986385](https://github.com/levelinglucy/Worldheart/actions/runs/42180986385). Cross-version pickle reserialization is not guaranteed to be byte-canonical; the final test compares matched candidate control and probe runs instead. This correction does **not** relax the actual probe noninterference criterion.
+- **No stable release/tag** is created here. Testing a separately preserved, trusted real-use save and environment-specific behaviour remains a useful release gate; do not load untrusted pickle.
+
 ## 2026-11-06 — v0.2.1-rc1 (CI-validated candidate, not stable)
 
 ### Fixed — candidate
