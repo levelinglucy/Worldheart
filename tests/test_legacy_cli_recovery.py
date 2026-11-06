@@ -9,6 +9,7 @@ CLI format, not a test of an actual user's checkpoint or untrusted files.
 
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -65,42 +66,54 @@ class LegacyCliRecoveryTests(unittest.TestCase):
     def uncompressed_state(envelope):
         return zlib.decompress(bytes.fromhex(envelope["payload"]))
 
-    def check_resume(self, commands, with_probe):
-        with tempfile.TemporaryDirectory(prefix="worldheart-legacy-recovery-") as tmp:
-            cwd = Path(tmp)
-            data, legacy = self.make_legacy_save(cwd)
-            original_state = self.uncompressed_state(legacy)
-            self.assertIn(b"__main__", original_state)
-            before_files = {p.name: p.read_bytes() for p in data.iterdir()}
-            self.assertIn(EVENTS, before_files)
+    def resume_once(self, cwd, commands, with_probe):
+        data = cwd / DATA
+        before_files = {p.name: p.read_bytes() for p in data.iterdir()}
+        self.assertIn(CHECKPOINT, before_files)
+        self.assertIn(EVENTS, before_files)
+        stdout = self.run_script(CANDIDATE, cwd, commands)
+        self.assertIn("Recovered transition 0", stdout)
+        if with_probe:
+            self.assertIn("Control active:", stdout)
+            self.assertIn("Removed active:", stdout)
 
-            stdout = self.run_script(CANDIDATE, cwd, commands)
-            self.assertIn("Recovered transition 0", stdout)
-            if with_probe:
-                self.assertIn("Control active:", stdout)
-                self.assertIn("Removed active:", stdout)
+        after_files = {p.name: p.read_bytes() for p in data.iterdir()}
+        self.assertEqual(set(before_files), set(after_files))
+        updated = json.loads(after_files[CHECKPOINT].decode("utf-8"))
+        self.assertEqual(updated["version"], "0.2.1-rc1")
+        self.assertEqual((updated["seed"], updated["tick"]), (777, 0))
+        self.assertIn(b"__main__", self.uncompressed_state(updated))
 
-            after_files = {p.name: p.read_bytes() for p in data.iterdir()}
-            self.assertEqual(set(before_files), set(after_files))
-            updated = json.loads(after_files[CHECKPOINT].decode("utf-8"))
-            self.assertEqual(updated["version"], "0.2.1-rc1")
-            self.assertEqual((updated["seed"], updated["tick"]), (777, 0))
-
-            # The user-visible quit/save must not alter the recovered ecology,
-            # and running the optional counterfactual probe must not either.
-            # The only expected disk-side change is the normal quit checkpoint.
-            self.assertEqual(self.uncompressed_state(updated), original_state)
-            old_events = before_files[EVENTS].decode("utf-8").splitlines()
-            new_events = after_files[EVENTS].decode("utf-8").splitlines()
-            self.assertEqual(new_events[:len(old_events)], old_events)
-            self.assertEqual(len(new_events), len(old_events) + 1)
-            self.assertEqual(json.loads(new_events[-1])["kind"], "CHECKPOINT")
+        # Only the ordinary CLI quit may append an event; the probe must not.
+        old_events = before_files[EVENTS].decode("utf-8").splitlines()
+        new_events = after_files[EVENTS].decode("utf-8").splitlines()
+        self.assertEqual(new_events[:len(old_events)], old_events)
+        self.assertEqual(len(new_events), len(old_events) + 1)
+        self.assertEqual(json.loads(new_events[-1])["kind"], "CHECKPOINT")
+        return after_files
 
     def test_legacy_cli_checkpoint_resumes_and_resaves(self):
-        self.check_resume("y\nq\n", with_probe=False)
+        with tempfile.TemporaryDirectory(prefix="worldheart-legacy-recovery-") as tmp:
+            cwd = Path(tmp)
+            self.make_legacy_save(cwd)
+            self.resume_once(cwd, "y\nq\n", with_probe=False)
 
     def test_legacy_cli_checkpoint_survives_counterfactual_probe(self):
-        self.check_resume("y\nc\n\nq\n", with_probe=True)
+        with tempfile.TemporaryDirectory(prefix="worldheart-legacy-probe-") as tmp:
+            root = Path(tmp)
+            original = root / "source"
+            control = root / "control"
+            experiment = root / "experiment"
+            original.mkdir()
+            self.make_legacy_save(original)
+            shutil.copytree(original, control)
+            shutil.copytree(original, experiment)
+            baseline = self.resume_once(control, "y\nq\n", with_probe=False)
+            probed = self.resume_once(experiment, "y\nc\n\nq\n", with_probe=True)
+            # Comparing independently saved v0.2 and v0.2.1 pickle *bytes*
+            # is too strict: pickle reserialization need not be canonical.
+            # Compare the same genuine legacy fixture with/without the probe.
+            self.assertEqual(baseline, probed)
 
 
 if __name__ == "__main__":
