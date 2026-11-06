@@ -1,0 +1,16 @@
+name: Worldheart probe regression
+on:
+  push:
+    branches: [main, "noe/portfolio-*"]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  probe-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run isolated standard-library regression suite
+        run: python3 -m unittest discover -s tests -v
