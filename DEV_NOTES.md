@@ -2,7 +2,7 @@
 
 ## Development summary
 
-**Candidate:** `v0.2.1-rc1` (six regression tests passed in CI; not designated stable). **Goal:** counterfactual probes cannot modify the live simulation's disk artifacts.  
+**Candidate:** `v0.2.1-rc1` (unreleased, not designated stable). **Goal:** protect live disk artifacts from private probes and avoid destroying recoverable interrupted checkpoint evidence. See the tests and pull request for exact revision-specific validation.  
 **Historical baseline:** `Worldheart simulator` (`v0.2-primordial`), preserved byte-for-byte in the same repository.  
 **Latest changes:** new candidate script with per-fork disk isolation, regression tests and GitHub Actions.  
 **Latest recovery validation:** a genuine v0.2 CLI checkpoint generated in an isolated interpreter was resumed and re-saved by the candidate, with and without a counterfactual probe. **8/8 tests passed** on [the compatibility branch](https://github.com/levelinglucy/Worldheart/actions/runs/42181165055). This does not represent an actual user save or Pythonista device.  
@@ -44,6 +44,16 @@ The counterfactual probe uses `world.fork(disk_writes_enabled=False)` for both e
 **What is tested:** successful old-CLI resume, new save, no unexpected disk artifacts, an expected quit event, and exact candidate disk-artifact parity between matched control and counterfactual runs. The first test revision incorrectly required original and reserialized pickle streams to match byte-for-byte; [CI run 42180986385](https://github.com/levelinglucy/Worldheart/actions/runs/42180986385) failed that over-strict assumption in both cases. A pickle roundtrip need not be canonically byte-identical, so the test was corrected to compare **the same historical input under candidate control vs candidate probe**; [8/8 tests passed](https://github.com/levelinglucy/Worldheart/actions/runs/42181165055).
 
 **Remaining uncertainty:** This is the published v0.2 CLI's generated format, not an in-the-wild saved game or Pythonista-specific test. The candidate still uses unsafe-for-untrusted-input `pickle`. A future portable structured checkpoint format would need a separate threat model and migration tests; see [recovery/rollback guidance](./docs/RECOVERY.md). Stable status remains unassigned.
+
+## Engineering decision 003 — preserve interrupted checkpoint temp evidence
+
+**Confirmed failure:** The candidate's normal `save()` used a fixed `<checkpoint>.tmp` path opened in truncating write mode. After an interrupted save, the next ordinary save silently destroyed the old temporary bytes, potentially losing the only recoverable recent state. Test-first synthetic cases for both an existing primary and an absent primary failed on [the pre-fix Actions run](https://github.com/levelinglucy/Worldheart/actions/runs/42351103775). Historical source and real user checkpoints were not touched.
+
+**Choice:** Keep the existing envelope format and replace the temporary-file open with exclusive creation (`open(..., "x")`). If an unresolved temp already exists, raise an informative `FileExistsError`, without changing either saved file or recording a successful checkpoint event. The normal create-and-replace path remains compatible; see `tests/test_stale_checkpoint_temp.py`.
+
+**Alternatives:** Truncating/reusing the temp discards evidence; silently deleting it guesses which history matters; a random temp name would avoid the collision but could permit a new checkpoint to supersede a recoverable interrupted write. An explicit refusal is the smallest conservative behaviour for this candidate.
+
+**Limits:** Exclusive creation is not a cross-process transaction lock. A save can still leave a partial new temp on I/O or crash; neither `fsync` durability nor real power-loss recovery is established, and independent writers are not coordinated. The format still uses trusted-only pickle. Copy and inspect saved evidence before any manual recovery; do not promote a `.tmp` automatically. Revisit with a tested, versioned recovery design rather than guessing freshness.
 
 ## Roadmap and release gates
 
