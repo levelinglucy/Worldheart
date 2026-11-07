@@ -24,7 +24,7 @@ Download [`worldheart_v02_1.py`](./worldheart_v02_1.py) and run with Python 3 or
 python3 worldheart_v02_1.py
 ```
 
-Use Enter to advance, `s` to save, `c` to run a private counterfactual probe, `n` to make a named snapshot, and `q` to save and quit. Data is stored in `WORLDHEART_V02_DATA/` relative to the working directory. Keep backups before switching versions; this is a release **candidate**, not an assurance of flawless persistence.
+Use Enter to advance, `s` to save, `c` to run a private counterfactual probe, `n` to make a named snapshot, and `q` to save and quit. Data is stored in `WORLDHEART_V02_DATA/` relative to the working directory. Keep backups before switching versions; this is a release **candidate**, not an assurance of flawless persistence. If a previous interrupted save left a `*.wh.tmp` file, **preserve both the `.tmp` and primary checkpoint**; this candidate refuses further saves to that target until the evidence is reviewed. Never delete or overwrite an unfamiliar `.tmp` merely to make saving work.
 
 ## What a probe actually measures
 

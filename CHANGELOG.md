@@ -2,6 +2,12 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
+## Unreleased — interrupted-checkpoint evidence protection
+
+- Fixed an additional normal-save integrity defect: a stale `*.wh.tmp` now blocks saving rather than being silently overwritten, whether or not the primary checkpoint exists. The historical `Worldheart simulator` remains unchanged.
+- Added three disposable-directory tests covering stale temporary files and normal save/load compatibility. Test-first failures are documented in [red CI](https://github.com/levelinglucy/Worldheart/actions/runs/42351103775); exact post-fix verification belongs in the associated pull request.
+- Kept the existing pickle envelope and replacement sequence. A refusal requires owner review of the temp and primary files; real power-loss durability, interprocess writer coordination and iPhone support remain unverified. See [decision 003](./DEV_NOTES.md#engineering-decision-003--preserve-interrupted-checkpoint-temp-evidence).
+
 ## 2026-11-06 — v0.2.1-rc1 recovery follow-up (candidate, not stable)
 
 ### Tests

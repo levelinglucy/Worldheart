@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-# WORLDHEART v0.2.1-rc1 — PRIMORDIAL FIELD (probe isolation candidate)
-# Developer summary: prevents counterfactual probes from writing world files.
-# Prior baseline: "Worldheart simulator" (v0.2). More: DEV_NOTES.md.
-# Next: test real historical checkpoint recovery; consider stable promotion.
+# WORLDHEART — PRIMORDIAL FIELD
+# Local deterministic ecology with counterfactual experiments and checkpoints.
+# Historical source: "Worldheart simulator" (v0.2), preserved separately.
+# Persistence/recovery guidance and current project status: DEV_NOTES.md.
 # A self-contained emergent computational petri dish for Python / Pythonista.
 #
 # Design:
@@ -718,9 +718,16 @@ class World:
             "hash": stable_hash(payload),
             "payload": payload.hex(),
         }
+        # An interrupted save may have left recoverable bytes in this path.
+        # Never silently truncate it (or follow an existing symlink).
         temp = filename + ".tmp"
-        with open(temp, "w", encoding="utf-8") as f:
-            json.dump(envelope, f)
+        try:
+            with open(temp, "x", encoding="utf-8") as f:
+                json.dump(envelope, f)
+        except FileExistsError as exc:
+            raise FileExistsError(
+                "Unresolved checkpoint temp %r; preserve and inspect it before saving" % temp
+            ) from exc
         os.replace(temp, filename)
         self.event("CHECKPOINT", {"file": filename})
         return filename
