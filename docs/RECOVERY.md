@@ -1,13 +1,8 @@
 # Worldheart — trusted checkpoint recovery
 
-## Development summary
+## Status
 
-**Stage:** `v0.2.1-rc1`, candidate; stable promotion remains pending.  
-**Goal:** resume a historical `v0.2-primordial` world without losing its saved state or allowing a counterfactual experiment to change its files.  
-**Latest check:** two isolated, end-to-end CLI tests generated checkpoints by executing the *unchanged* historical script as `__main__`, then resumed them with the candidate. The full suite passed 8/8 in [GitHub Actions](https://github.com/levelinglucy/Worldheart/actions/runs/42181165055).  
-**Next:** validate a separately backed-up, trusted save from normal use and, where available, Pythonista before designating a stable release.
-
-[README](../README.md) · [Developer notes](../DEV_NOTES.md) · [Changelog](../CHANGELOG.md)
+`v0.2.1-rc1` remains a source candidate, not a verified stable release. Current goal, precise integration/validation state and decision history live in [DEV_NOTES.md](../DEV_NOTES.md) and [PR #4](https://github.com/levelinglucy/Worldheart/pull/4). Valid historical CLI saves were tested in disposable copies; no real-use checkpoint or iPhone/Pythonista save has been verified.
 
 ## Preserve first
 
@@ -18,6 +13,12 @@
 5. Continue actual play only after you have verified recovery. Keep the original backup in case a later regression appears. Never commit personal checkpoints or their pickle payloads to a public repository.
 
 The automated tests use an authentic *generated* old CLI checkpoint, including the `__main__.World` pickle class reference. They do **not** prove that every historical Python/Pythonista version or a real individual's save can be recovered. They also do not make `pickle` safe for untrusted files.
+
+## If resuming fails
+
+The candidate now stops with a nonzero exit status after a failed attempted resume; it does **not** offer a new Genesis that could overwrite the checkpoint during an ordinary save. Preserve the entire data folder, including `*.tmp`, journal and fossil files, even if the primary looks corrupt. Test recovery only on a trusted copy in a separate working directory. An explicit **n** at the resume prompt still starts anew; saving that new world may replace the prior checkpoint. Choose a **clean working directory** if you want to keep both histories.
+
+Do not open untrusted checkpoints: the existing pickle format can execute code on load.
 
 ## Rollback
 
