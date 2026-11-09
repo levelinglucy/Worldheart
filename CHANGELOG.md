@@ -2,6 +2,11 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
+## Unreleased — complete-only observational fossil publication
+
+- Serialize each new fossil as a unique temporary JSON file before exclusively linking a fully written document to a free final name; keep prior fossils and occupied symlinks untouched, with in-memory evidence retained on I/O failure.
+- Add two synthetic failure-injection regressions for incomplete serialization and unavailable hard links. No automatic fallback to unsafe writes; interrupted processes may leave staging evidence and power-loss, event-journal transactions and device compatibility remain unverified. See [decision 008](./DEV_NOTES.md#engineering-decision-008--complete-only-observational-fossil-publication) and [PR #8](https://github.com/levelinglucy/Worldheart/pull/8).
+
 ## Unreleased — observational fossil collision protection
 
 - Retained distinct anomaly fossils from the same tick or different seeded universes by allocating an exclusive `fossil_<tick>[_NNN].json` filename; occupied files and symlinks are never truncated or followed.
