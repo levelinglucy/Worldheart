@@ -61,11 +61,10 @@ class FossilPreservationTests(unittest.TestCase):
         world.preserve_fossil(["new-fossil"], world.metrics())
         self.assertTrue(base.is_symlink())
         self.assertFalse(target.exists())
-        files = self.fossil_files()
-        self.assertEqual(len(files), 1, files)
-        self.assertNotEqual(files[0], base)
+        new_files = [p for p in self.fossil_files() if p != base]
+        self.assertEqual(len(new_files), 1, new_files)
         self.assertEqual(
-            json.loads(files[0].read_text(encoding="utf-8"))["reasons"],
+            json.loads(new_files[0].read_text(encoding="utf-8"))["reasons"],
             ["new-fossil"],
         )
 

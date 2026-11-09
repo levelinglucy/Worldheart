@@ -3,8 +3,8 @@
 ## Development summary
 
 **Goal:** Preserve both the live simulation and its recoverable disk evidence when probes or checkpoint recovery fail. **Candidate:** `v0.2.1-rc1`, integrated source work but not a published stable release. The historical `Worldheart simulator` is preserved.
-**Integration/validation/release:** [PR #4](https://github.com/levelinglucy/Worldheart/pull/4) holds the exact revision and results for the failed-resume refusal. Prior probe isolation, historical CLI compatibility and stale-temp refusal are documented below and in their preceding PRs. No stable tag/release or trusted real-use/iPhone recovery proof is asserted.
-**Latest meaningful work:** A dangling symlink occupying the latest-checkpoint path now enters the failed-recovery refusal path, rather than being misidentified as absent and replaced after Genesis. Previous named-snapshot collision protection and failed-resume refusal remain. See [decision 006](#engineering-decision-006--treat-a-dangling-latest-checkpoint-link-as-existing-evidence), [decision 005](#engineering-decision-005--protect-named-snapshot-history) and [decision 004](#engineering-decision-004--abort-on-failed-checkpoint-recovery).
+**Integration/validation/release:** Source fixes through [PR #6](https://github.com/levelinglucy/Worldheart/pull/6) were integrated and checked on exact main; [PR #7](https://github.com/levelinglucy/Worldheart/pull/7) holds the fossil-collision implementation, integration status and its revision-specific checks. No stable tag/release or trusted real-use/iPhone recovery proof is asserted.
+**Latest meaningful work:** Fossils sharing a tick now use exclusive creation and bounded suffixes rather than overwriting earlier disk evidence, while private forks remain disk-silent. See [decision 007](#engineering-decision-007--preserve-colliding-observational-fossils). Earlier dangling-link, named-snapshot and failed-resume repairs remain (decisions 006, 005 and 004).
 **Next steps:** Confirm current test evidence and main integration; keep a trusted recovery/rollback copy; assess stable promotion only with documented scope. No personal-device testing is required for unrelated engineering progress.
 [Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery/rollback guide](./docs/RECOVERY.md) · [Tests](./tests/test_failed_recovery_refusal.py).
 
@@ -77,6 +77,14 @@ The counterfactual probe uses `world.fork(disk_writes_enabled=False)` for both e
 **Decision:** Use `os.path.lexists` only for detecting whether the latest path is occupied. An existing-but-broken link proceeds through the normal attempted recovery path, which fails closed with a clear message and nonzero exit. No new Genesis is offered and neither the link nor journal is modified. Genuine missing paths still permit Genesis; healthy existing checkpoint and symlink targets keep their previous load behaviour. Historical v0.2 source remains untouched.
 
 **Trade-offs:** A link pointing to a currently unavailable location prevents starting a new world in that directory until the user consciously preserves/moves that evidence, rather than risking automatic erasure. This is not symlink authentication, directory traversal hardening, safe untrusted pickle handling, or power-loss certification. Revisit if deliberate link-based storage needs a separate recovery UI.
+
+## Engineering decision 007 — preserve colliding observational fossils
+
+**Confirmed predecessor behaviour:** `preserve_fossil()` wrote `fossil_<tick>.json` using truncating text mode. Different seeded worlds and multiple anomalies at the same tick silently replaced earlier fossil records; an existing dangling symlink could be followed and its target created. Three disposable test-first cases failed on [red CI 42654009805](https://github.com/levelinglucy/Worldheart/actions/runs/42654009805), while the prior 17 tests remained green.
+
+**Decision:** Use exclusive `x` creation for the existing tick name, followed by `_001`, `_002` and so on for occupied names, up to 999 alternatives. The operation never truncates an occupied destination, including symlinks. Normal first-fossil naming and observational JSON contents are unchanged; in-memory fossil retention and private-fork disk isolation remain. The unchanged historical simulator is not modified.
+
+**Alternatives and trade-offs:** Refusing every collision would preserve older data but discard a new fossil; random filenames would avoid deterministic, phone-readable chronology; exclusive suffix allocation makes both histories inspectable. Filesystem failures and exhaustion still leave the in-memory fossil but may fail to publish on disk, as fossil I/O is best-effort. Direct exclusive writes can leave a partial *new* fossil after interrupted I/O and are not crash-atomic or `fsync` guaranteed. Independent writers can race to *different* suffixes without replacing each other's records, but other observer operations, including the event journal, are not transactionally coordinated. Reconsider a complete-only artifact writer alongside a versioned storage redesign.
 
 ## Roadmap and release gates
 
