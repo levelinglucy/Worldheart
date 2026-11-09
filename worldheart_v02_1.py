@@ -948,7 +948,7 @@ def choose_world():
     genesis_screen()
     latest = os.path.join(SAVE_DIR, SAVE_FILE)
     if os.path.exists(latest):
-        ans = input("Resume preserved universe? [Y/n] ").strip().lower()
+        ans = input("Resume preserved universe? [Y/n; n starts anew and may replace this save] ").strip().lower()
         if ans not in ("n", "no"):
             try:
                 w = World.load(latest)
@@ -957,7 +957,9 @@ def choose_world():
                 return w
             except Exception as e:
                 print("Recovery failed:", e)
-                print("Genesis remains available.")
+                print("Existing checkpoint preserved; no new universe was started.")
+                print("Keep the complete data directory. To start anew, use a clean working directory.")
+                raise SystemExit(1)
     raw = input("Genesis seed [%s]: " % DEFAULT_SEED).strip()
     try:
         seed = int(raw) if raw else DEFAULT_SEED

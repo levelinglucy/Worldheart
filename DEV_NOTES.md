@@ -2,12 +2,11 @@
 
 ## Development summary
 
-**Candidate:** `v0.2.1-rc1` (unreleased, not designated stable). **Goal:** protect live disk artifacts from private probes and avoid destroying recoverable interrupted checkpoint evidence. See the tests and pull request for exact revision-specific validation.  
-**Historical baseline:** `Worldheart simulator` (`v0.2-primordial`), preserved byte-for-byte in the same repository.  
-**Latest changes:** new candidate script with per-fork disk isolation, regression tests and GitHub Actions.  
-**Latest recovery validation:** a genuine v0.2 CLI checkpoint generated in an isolated interpreter was resumed and re-saved by the candidate, with and without a counterfactual probe. **8/8 tests passed** on [the compatibility branch](https://github.com/levelinglucy/Worldheart/actions/runs/42181165055). This does not represent an actual user save or Pythonista device.  
-**Next priorities:** test a trusted in-the-wild checkpoint in a disposable copy where available, verify rollback and assess the stable release gate. [Candidate PR #1 was merged](https://github.com/levelinglucy/Worldheart/pull/1).  
-**Links:** [Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery guide](./docs/RECOVERY.md) · [Probe tests](./tests/test_probe_isolation.py) · [CLI compatibility tests](./tests/test_legacy_cli_recovery.py).
+**Goal:** Preserve both the live simulation and its recoverable disk evidence when probes or checkpoint recovery fail. **Candidate:** `v0.2.1-rc1`, integrated source work but not a published stable release. The historical `Worldheart simulator` is preserved.
+**Integration/validation/release:** [PR #4](https://github.com/levelinglucy/Worldheart/pull/4) holds the exact revision and results for the failed-resume refusal. Prior probe isolation, historical CLI compatibility and stale-temp refusal are documented below and in their preceding PRs. No stable tag/release or trusted real-use/iPhone recovery proof is asserted.
+**Latest meaningful work:** If an existing checkpoint cannot be loaded, the candidate exits without beginning Genesis; opting out of resume is warned as a potentially destructive choice. See [decision 004](#engineering-decision-004--abort-on-failed-checkpoint-recovery).
+**Next steps:** Confirm current test evidence and main integration; keep a trusted recovery/rollback copy; assess stable promotion only with documented scope. No personal-device testing is required for unrelated engineering progress.
+[Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery/rollback guide](./docs/RECOVERY.md) · [Tests](./tests/test_failed_recovery_refusal.py).
 
 ## How the original code works
 
@@ -55,12 +54,20 @@ The counterfactual probe uses `world.fork(disk_writes_enabled=False)` for both e
 
 **Limits:** Exclusive creation is not a cross-process transaction lock. A save can still leave a partial new temp on I/O or crash; neither `fsync` durability nor real power-loss recovery is established, and independent writers are not coordinated. The format still uses trusted-only pickle. Copy and inspect saved evidence before any manual recovery; do not promote a `.tmp` automatically. Revisit with a tested, versioned recovery design rather than guessing freshness.
 
+## Engineering decision 004 — abort on failed checkpoint recovery
+
+**Confirmed defect:** When an existing primary checkpoint had malformed JSON or a mismatched integrity hash, the candidate printed a recovery error and silently offered Genesis. Accepting the seed and then saving on `q` replaced the original checkpoint and appended new-world events. Two isolated CLI tests first reproduced this exact overwrite on [red CI 42616290002](https://github.com/levelinglucy/Worldheart/actions/runs/42616290002). No real checkpoint or untrusted pickle was used.
+
+**Choice:** On a failed attempted resume, print a recovery error and preservation/clean-directory instructions, then exit nonzero before Genesis or any subsequent save. Keep the explicit `n` path for users deliberately starting anew, but warn it can replace the old world on saving. Do not rename, delete, parse again, or auto-repair the suspect checkpoint. The historical program is untouched.
+
+**Alternatives and trade-offs:** Continuing with a new world is convenient but can erase recoverable evidence; an automatic backup might itself overwrite or fail; automatic temp promotion would guess recovery state. Refusing this particular run is deliberately conservative, but requires the user to investigate or choose a separate working directory. This prevents one accidental overwrite path; it does **not** solve concurrent writers, crash durability, unsafe untrusted pickle, or every possible corrupt-world scenario. Reconsider with a versioned recovery manager and tested explicit replacement workflow.
+
 ## Roadmap and release gates
 
 | Stage | Intended result | Acceptance | Status |
 | --- | --- | --- | --- |
 | v0.2 historical baseline | Preserve existing deterministic simulator | Original source remains unchanged | Preserved |
-| v0.2.1-rc1 candidate | Disk-isolated counterfactual probe | Baseline issue reproduced; fork leaves disk and live state unchanged across 12 steps; ordinary saves and seeded dynamics pass | Merged on main, CI-validated candidate, not stable |
+| v0.2.1-rc1 candidate | Disk-isolated counterfactual probe | Baseline issue reproduced; fork leaves disk and live state unchanged across 12 steps; failed CLI resume refuses fallback genesis; ordinary saves and seeded dynamics pass | Merged on main, CI-validated candidate, not stable |
 | v0.2.1 stable (proposed) | Safe recommended entry point | Exact candidate tests pass; authentic old-CLI recovery and rollback are documented; check a trusted user save/Pythonista if available; assess compatibility limits | Planned, not released |
 | Future (optional) | Better portable checkpoints | Threat model, migration and replay equivalence tests | Idea only |
 

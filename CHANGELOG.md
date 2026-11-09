@@ -2,6 +2,12 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
+## Unreleased — failed-resume checkpoint preservation
+
+- Prevented failed checkpoint recovery from falling through to Genesis, where a normal quit/save could overwrite the checkpoint that failed to load; preserves existing disk evidence and exits nonzero with recovery guidance.
+- Made the explicit start-new choice warn that saving can replace the existing world; two isolated CLI regression fixtures (malformed JSON and bad integrity hash) reproduce the predecessor overwrite without loading a pickle. See [PR #4](https://github.com/levelinglucy/Worldheart/pull/4) for exact revision and test evidence.
+- Kept ordinary intentional Genesis and valid legacy checkpoint resume behaviour. The historical script is unchanged; no trusted user-save, device, power-loss or multiwriter certification is implied.
+
 ## Unreleased — interrupted-checkpoint evidence protection
 
 - Fixed an additional normal-save integrity defect: a stale `*.wh.tmp` now blocks saving rather than being silently overwritten, whether or not the primary checkpoint exists. The historical `Worldheart simulator` remains unchanged.
