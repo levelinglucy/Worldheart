@@ -704,7 +704,7 @@ class World:
     # 07. CHECKPOINT / RECOVERY
     # ─────────────────────────────────────────────────────────────────────────
 
-    def save(self, filename=None):
+    def save(self, filename=None, replace_existing=True):
         if not self._can_write_disk():
             raise RuntimeError("Counterfactual fork: disk persistence is disabled")
         safe_mkdir(SAVE_DIR)
@@ -728,7 +728,29 @@ class World:
             raise FileExistsError(
                 "Unresolved checkpoint temp %r; preserve and inspect it before saving" % temp
             ) from exc
-        os.replace(temp, filename)
+        if replace_existing:
+            # The rolling latest checkpoint deliberately replaces its predecessor.
+            os.replace(temp, filename)
+        else:
+            # Named snapshots must not replace an older world, even when two
+            # worlds reuse the same label and tick. A hard link atomically
+            # creates the final name only if it is absent, including symlinks.
+            # If unavailable, refuse rather than publish unsafely.
+            try:
+                os.link(temp, filename)
+            except (OSError, NotImplementedError) as exc:
+                try:
+                    os.unlink(temp)  # Remove only our newly created staging file.
+                except OSError:
+                    pass  # Keep possible recovery evidence if cleanup fails.
+                if isinstance(exc, FileExistsError):
+                    raise FileExistsError(
+                        "Named checkpoint %r exists; choose another label or tick" % filename
+                    ) from exc
+                raise OSError(
+                    "Cannot publish named checkpoint exclusively on this filesystem"
+                ) from exc
+            os.unlink(temp)
         self.event("CHECKPOINT", {"file": filename})
         return filename
 
@@ -742,7 +764,7 @@ class World:
         filename = os.path.join(
             SAVE_DIR, "%s_t%012d.wh" % (clean or "checkpoint", self.tick)
         )
-        return self.save(filename)
+        return self.save(filename, replace_existing=False)
 
     @staticmethod
     def load(filename=None):
@@ -1002,7 +1024,10 @@ def main():
             continue
         elif cmd in ("n", "named"):
             label = input("Checkpoint label: ").strip() or "checkpoint"
-            print("Preserved:", world.save_named(label))
+            try:
+                print("Preserved:", world.save_named(label))
+            except OSError as exc:
+                print("Named checkpoint not saved:", exc)
             continue
         elif cmd.startswith("run "):
             try:
