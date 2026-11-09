@@ -25,6 +25,7 @@ import hashlib
 import pickle
 import zlib
 import statistics
+import tempfile
 from dataclasses import dataclass, field, asdict
 from collections import Counter, defaultdict, deque
 
@@ -692,16 +693,26 @@ class World:
         self.event("ANOMALY", {"reasons": reasons})
         if not self._can_write_disk():
             return  # Fossil remains inspectable on the private fork only.
+        stage = None
         try:
             safe_mkdir(SAVE_DIR)
             root = "fossil_%012d" % self.tick
-            # Multiple worlds and anomalies can share a tick. Never truncate
-            # existing fossil evidence or follow an occupied symlink.
+            # Serialize away from final fossil names. A failed or interrupted
+            # write must not expose a partial JSON document as a real fossil.
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=SAVE_DIR,
+                prefix=root + "_", suffix=".json.tmp", delete=False
+            ) as f:
+                stage = f.name
+                json.dump(fossil, f, indent=2)
+
+            # Linking a complete stage exclusively retains every previous
+            # fossil (including symlinks) and handles same-tick collisions.
+            # If hard links are unavailable, refuse to publish partial data.
             for slot in range(1000):
                 name = root + ("_%03d" % slot if slot else "") + ".json"
                 try:
-                    with open(os.path.join(SAVE_DIR, name), "x", encoding="utf-8") as f:
-                        json.dump(fossil, f, indent=2)
+                    os.link(stage, os.path.join(SAVE_DIR, name))
                     break
                 except FileExistsError:
                     continue
@@ -710,6 +721,12 @@ class World:
         except Exception:
             # Disk fossils are best-effort; in-memory observer data is retained.
             pass
+        finally:
+            if stage is not None:
+                try:
+                    os.unlink(stage)  # Only this attempt's temporary artifact.
+                except OSError:
+                    pass  # A failed cleanup leaves recoverable staging evidence.
 
     # ─────────────────────────────────────────────────────────────────────────
     # 07. CHECKPOINT / RECOVERY
