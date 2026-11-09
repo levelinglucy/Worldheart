@@ -4,7 +4,7 @@
 
 **Goal:** Preserve both the live simulation and its recoverable disk evidence when probes or checkpoint recovery fail. **Candidate:** `v0.2.1-rc1`, integrated source work but not a published stable release. The historical `Worldheart simulator` is preserved.
 **Integration/validation/release:** [PR #4](https://github.com/levelinglucy/Worldheart/pull/4) holds the exact revision and results for the failed-resume refusal. Prior probe isolation, historical CLI compatibility and stale-temp refusal are documented below and in their preceding PRs. No stable tag/release or trusted real-use/iPhone recovery proof is asserted.
-**Latest meaningful work:** Named snapshots now use exclusive publication so identical labels/ticks cannot overwrite existing history, while ordinary rolling saves continue replacing the latest checkpoint. The earlier failed-resume refusal remains in force. See [decision 005](#engineering-decision-005--protect-named-snapshot-history) and [decision 004](#engineering-decision-004--abort-on-failed-checkpoint-recovery).
+**Latest meaningful work:** A dangling symlink occupying the latest-checkpoint path now enters the failed-recovery refusal path, rather than being misidentified as absent and replaced after Genesis. Previous named-snapshot collision protection and failed-resume refusal remain. See [decision 006](#engineering-decision-006--treat-a-dangling-latest-checkpoint-link-as-existing-evidence), [decision 005](#engineering-decision-005--protect-named-snapshot-history) and [decision 004](#engineering-decision-004--abort-on-failed-checkpoint-recovery).
 **Next steps:** Confirm current test evidence and main integration; keep a trusted recovery/rollback copy; assess stable promotion only with documented scope. No personal-device testing is required for unrelated engineering progress.
 [Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery/rollback guide](./docs/RECOVERY.md) · [Tests](./tests/test_failed_recovery_refusal.py).
 
@@ -69,6 +69,14 @@ The counterfactual probe uses `world.fork(disk_writes_enabled=False)` for both e
 **Decision:** Keep replace semantics for the rolling `latest.wh` checkpoint, but publish named snapshots with an atomic exclusive hard link from a completely written temp file. An already occupied destination (including a symlink) refuses without changing its bytes; a failed link removes only the staging temp created by this attempt. If hard links are unsupported, refuse rather than risk replacing evidence. The CLI reports refusal without exiting unexpectedly. The historical source remains unchanged.
 
 **Trade-offs and limits:** This requires same-filesystem hard-link support; iPhone/Pythonista and specific filesystems remain unverified. It does not make the rolling checkpoint immutable, authenticate `pickle`, establish power-loss durability, or coordinate independent writers beyond exclusive final-name creation. New safety evidence added this gate after the earlier recovery candidate was integrated; no earlier tests or release claims are retroactively reclassified.
+
+## Engineering decision 006 — treat a dangling latest checkpoint link as existing evidence
+
+**Confirmed failure:** The candidate's boot choice tested the rolling checkpoint path with `os.path.exists`, which follows links. A dangling `latest.wh` symlink therefore appeared absent. The CLI offered Genesis, and saving the new world replaced the symlink. A disposable, synthetic subprocess fixture reproduced this at baseline main `158aadef`: [test-first CI 42644786690](https://github.com/levelinglucy/Worldheart/actions/runs/42644786690) failed the new preservation assertion while the previous 16 tests passed.
+
+**Decision:** Use `os.path.lexists` only for detecting whether the latest path is occupied. An existing-but-broken link proceeds through the normal attempted recovery path, which fails closed with a clear message and nonzero exit. No new Genesis is offered and neither the link nor journal is modified. Genuine missing paths still permit Genesis; healthy existing checkpoint and symlink targets keep their previous load behaviour. Historical v0.2 source remains untouched.
+
+**Trade-offs:** A link pointing to a currently unavailable location prevents starting a new world in that directory until the user consciously preserves/moves that evidence, rather than risking automatic erasure. This is not symlink authentication, directory traversal hardening, safe untrusted pickle handling, or power-loss certification. Revisit if deliberate link-based storage needs a separate recovery UI.
 
 ## Roadmap and release gates
 

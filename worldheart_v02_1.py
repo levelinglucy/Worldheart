@@ -969,7 +969,9 @@ def genesis_screen():
 def choose_world():
     genesis_screen()
     latest = os.path.join(SAVE_DIR, SAVE_FILE)
-    if os.path.exists(latest):
+    # A dangling symlink is still occupied checkpoint evidence. os.path.exists()
+    # follows links and incorrectly treated it as a safe, empty Genesis slot.
+    if os.path.lexists(latest):
         ans = input("Resume preserved universe? [Y/n; n starts anew and may replace this save] ").strip().lower()
         if ans not in ("n", "no"):
             try:
