@@ -2,6 +2,12 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
+## Unreleased — named-snapshot collision protection
+
+- Named saves now publish only when the label/tick filename does not already exist, preserving older snapshot bytes and symlink destinations; normal rolling saves still replace `latest.wh`.
+- Named publication uses an exclusive hard link from a complete staged file; filesystems without hard-link support refuse safely. A CLI collision reports an error without crashing. Three synthetic regressions cover collisions, symlinks and valid distinct ticks.
+- This is a newly discovered data-integrity gate for the source candidate, not a stable release or an iPhone/power-loss certification. See [decision 005](./DEV_NOTES.md#engineering-decision-005--protect-named-snapshot-history).
+
 ## Unreleased — failed-resume checkpoint preservation
 
 - Prevented failed checkpoint recovery from falling through to Genesis, where a normal quit/save could overwrite the checkpoint that failed to load; preserves existing disk evidence and exits nonzero with recovery guidance.

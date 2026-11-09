@@ -4,7 +4,7 @@
 
 **Goal:** Preserve both the live simulation and its recoverable disk evidence when probes or checkpoint recovery fail. **Candidate:** `v0.2.1-rc1`, integrated source work but not a published stable release. The historical `Worldheart simulator` is preserved.
 **Integration/validation/release:** [PR #4](https://github.com/levelinglucy/Worldheart/pull/4) holds the exact revision and results for the failed-resume refusal. Prior probe isolation, historical CLI compatibility and stale-temp refusal are documented below and in their preceding PRs. No stable tag/release or trusted real-use/iPhone recovery proof is asserted.
-**Latest meaningful work:** If an existing checkpoint cannot be loaded, the candidate exits without beginning Genesis; opting out of resume is warned as a potentially destructive choice. See [decision 004](#engineering-decision-004--abort-on-failed-checkpoint-recovery).
+**Latest meaningful work:** Named snapshots now use exclusive publication so identical labels/ticks cannot overwrite existing history, while ordinary rolling saves continue replacing the latest checkpoint. The earlier failed-resume refusal remains in force. See [decision 005](#engineering-decision-005--protect-named-snapshot-history) and [decision 004](#engineering-decision-004--abort-on-failed-checkpoint-recovery).
 **Next steps:** Confirm current test evidence and main integration; keep a trusted recovery/rollback copy; assess stable promotion only with documented scope. No personal-device testing is required for unrelated engineering progress.
 [Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery/rollback guide](./docs/RECOVERY.md) · [Tests](./tests/test_failed_recovery_refusal.py).
 
@@ -62,12 +62,20 @@ The counterfactual probe uses `world.fork(disk_writes_enabled=False)` for both e
 
 **Alternatives and trade-offs:** Continuing with a new world is convenient but can erase recoverable evidence; an automatic backup might itself overwrite or fail; automatic temp promotion would guess recovery state. Refusing this particular run is deliberately conservative, but requires the user to investigate or choose a separate working directory. This prevents one accidental overwrite path; it does **not** solve concurrent writers, crash durability, unsafe untrusted pickle, or every possible corrupt-world scenario. Reconsider with a versioned recovery manager and tested explicit replacement workflow.
 
+## Engineering decision 005 — protect named snapshot history
+
+**Confirmed defect:** Named snapshot filenames include only a cleaned label and tick. Two different universes at the same tick can use the same label, and the existing `os.replace` silently overwrote the older named snapshot; an existing symlink could also be replaced. Disposable test-first fixtures reproduced both failures. This is independent of the previously repaired failed-resume path.
+
+**Decision:** Keep replace semantics for the rolling `latest.wh` checkpoint, but publish named snapshots with an atomic exclusive hard link from a completely written temp file. An already occupied destination (including a symlink) refuses without changing its bytes; a failed link removes only the staging temp created by this attempt. If hard links are unsupported, refuse rather than risk replacing evidence. The CLI reports refusal without exiting unexpectedly. The historical source remains unchanged.
+
+**Trade-offs and limits:** This requires same-filesystem hard-link support; iPhone/Pythonista and specific filesystems remain unverified. It does not make the rolling checkpoint immutable, authenticate `pickle`, establish power-loss durability, or coordinate independent writers beyond exclusive final-name creation. New safety evidence added this gate after the earlier recovery candidate was integrated; no earlier tests or release claims are retroactively reclassified.
+
 ## Roadmap and release gates
 
 | Stage | Intended result | Acceptance | Status |
 | --- | --- | --- | --- |
 | v0.2 historical baseline | Preserve existing deterministic simulator | Original source remains unchanged | Preserved |
-| v0.2.1-rc1 candidate | Disk-isolated counterfactual probe | Baseline issue reproduced; fork leaves disk and live state unchanged across 12 steps; failed CLI resume refuses fallback genesis; ordinary saves and seeded dynamics pass | Merged on main, CI-validated candidate, not stable |
+| v0.2.1-rc1 candidate | Disk-isolated counterfactual probe | Baseline issue reproduced; fork leaves disk and live state unchanged across 12 steps; failed CLI resume refuses fallback genesis; named snapshots refuse existing final names while ordinary rolling saves and seeded dynamics pass | Merged on main, CI-validated candidate, not stable |
 | v0.2.1 stable (proposed) | Safe recommended entry point | Exact candidate tests pass; authentic old-CLI recovery and rollback are documented; check a trusted user save/Pythonista if available; assess compatibility limits | Planned, not released |
 | Future (optional) | Better portable checkpoints | Threat model, migration and replay equivalence tests | Idea only |
 
