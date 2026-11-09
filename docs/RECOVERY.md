@@ -16,7 +16,7 @@ The automated tests use an authentic *generated* old CLI checkpoint, including t
 
 ## If resuming fails
 
-The candidate now stops with a nonzero exit status after a failed attempted resume; it does **not** offer a new Genesis that could overwrite the checkpoint during an ordinary save. Preserve the entire data folder, including `*.tmp`, journal and fossil files, even if the primary looks corrupt. Test recovery only on a trusted copy in a separate working directory. An explicit **n** at the resume prompt still starts anew; saving that new world may replace the prior checkpoint. Choose a **clean working directory** if you want to keep both histories.
+A dangling symlink occupying the latest-checkpoint filename counts as existing evidence rather than an empty slot: preserve it and investigate its target on a disposable copy. The candidate now stops with a nonzero exit status after a failed attempted resume; it does **not** offer a new Genesis that could overwrite the checkpoint during an ordinary save. Preserve the entire data folder, including `*.tmp`, journal and fossil files, even if the primary looks corrupt. Test recovery only on a trusted copy in a separate working directory. An explicit **n** at the resume prompt still starts anew; saving that new world may replace the prior checkpoint. Choose a **clean working directory** if you want to keep both histories.
 
 Do not open untrusted checkpoints: the existing pickle format can execute code on load.
 

@@ -2,6 +2,11 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
+## Unreleased — dangling latest-checkpoint path preservation
+
+- A broken symlink at the rolling latest-checkpoint path now enters failed-recovery refusal instead of silently allowing Genesis and subsequent replacement of the link; legitimate missing paths and healthy resume are unchanged.
+- Added a synthetic, disposable CLI regression reproducing the predecessor's destructive path; see [decision 006](./DEV_NOTES.md#engineering-decision-006--treat-a-dangling-latest-checkpoint-link-as-existing-evidence) and the associated PR for exact fixed-revision checks. Historical source and trusted-user data remain untouched.
+
 ## Unreleased — named-snapshot collision protection
 
 - Named saves now publish only when the label/tick filename does not already exist, preserving older snapshot bytes and symlink destinations; normal rolling saves still replace `latest.wh`.
