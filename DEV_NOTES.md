@@ -2,11 +2,11 @@
 
 ## Development summary
 
-**Goal:** Preserve both the live simulation and its recoverable disk evidence when probes or checkpoint recovery fail. **Candidate:** `v0.2.1-rc1`, integrated source work but not a published stable release. The historical `Worldheart simulator` is preserved.
-**Integration/validation/release:** Source fixes through [PR #6](https://github.com/levelinglucy/Worldheart/pull/6) were integrated and checked on exact main; [PR #7](https://github.com/levelinglucy/Worldheart/pull/7) holds the fossil-collision implementation, integration status and its revision-specific checks. No stable tag/release or trusted real-use/iPhone recovery proof is asserted.
-**Latest meaningful work:** Fossils sharing a tick now use exclusive creation and bounded suffixes rather than overwriting earlier disk evidence, while private forks remain disk-silent. See [decision 007](#engineering-decision-007--preserve-colliding-observational-fossils). Earlier dangling-link, named-snapshot and failed-resume repairs remain (decisions 006, 005 and 004).
-**Next steps:** Confirm current test evidence and main integration; keep a trusted recovery/rollback copy; assess stable promotion only with documented scope. No personal-device testing is required for unrelated engineering progress.
-[Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery/rollback guide](./docs/RECOVERY.md) · [Tests](./tests/test_failed_recovery_refusal.py).
+**Goal:** Preserve live-world state and recoverable evidence, including complete-only observational fossil publication. **Candidate:** `v0.2.1-rc1` source work; no stable tag or release. Historical `Worldheart simulator` preserved unchanged.
+**Integration / validation / release:** Previous checkpoint and fossil-collision fixes through [PR #7](https://github.com/levelinglucy/Worldheart/pull/7) are integrated on main. Complete-only fossil publication is recorded in [PR #8](https://github.com/levelinglucy/Worldheart/pull/8), the authoritative source for its integration and exact revision-specific checks. No device, durability or stable publication claim.
+**Latest meaningful implementation:** JSON fossils are serialized into unique temporary files and exclusively linked to final names only once closed successfully. In-memory observations survive storage failures, and old final names remain protected. See [decision 008](#engineering-decision-008--complete-only-observational-fossil-publication). The event journal and fossil files are **not** one transaction.
+**Next steps:** Validate complete-only publication and failure injection on the precise candidate; revisit recovery/rollback and portability evidence before any stable promotion. Keep third-party or untrusted pickle out of recovery testing.
+[Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery/rollback guide](./docs/RECOVERY.md) · [Fossil safety tests](./tests/test_fossil_complete_publication.py).
 
 ## How the original code works
 
@@ -85,6 +85,16 @@ The counterfactual probe uses `world.fork(disk_writes_enabled=False)` for both e
 **Decision:** Use exclusive `x` creation for the existing tick name, followed by `_001`, `_002` and so on for occupied names, up to 999 alternatives. The operation never truncates an occupied destination, including symlinks. Normal first-fossil naming and observational JSON contents are unchanged; in-memory fossil retention and private-fork disk isolation remain. The unchanged historical simulator is not modified.
 
 **Alternatives and trade-offs:** Refusing every collision would preserve older data but discard a new fossil; random filenames would avoid deterministic, phone-readable chronology; exclusive suffix allocation makes both histories inspectable. Filesystem failures and exhaustion still leave the in-memory fossil but may fail to publish on disk, as fossil I/O is best-effort. Direct exclusive writes can leave a partial *new* fossil after interrupted I/O and are not crash-atomic or `fsync` guaranteed. Independent writers can race to *different* suffixes without replacing each other's records, but other observer operations, including the event journal, are not transactionally coordinated. Reconsider a complete-only artifact writer alongside a versioned storage redesign.
+
+## Engineering decision 008 — complete-only observational fossil publication
+
+**Confirmed predecessor failure:** The collision-safe writer opened the final fossil filename with exclusive `x` and then streamed `json.dump` into it. An interrupted serialization left syntactically incomplete JSON at a filename that appears to be a real fossil. Two disposable injected-failure cases in [test-first CI 42664345362](https://github.com/levelinglucy/Worldheart/actions/runs/42664345362) failed on the previous source while the earlier 20 tests passed. No real user files or historical source were modified.
+
+**Decision:** Write the fossil to a unique, private `*.json.tmp` staging file in the same data directory, close it successfully, then publish by `os.link(stage, final)`. The hard-link operation creates a complete final name exclusively, preserving earlier fossils and occupied symlinks and allowing bounded suffix allocation. Always try to remove the staging path created by this attempt, including on serialization or publication failure. Retain in-memory observer history when disk persistence fails.
+
+**Alternatives:** Direct exclusive final-name writes can expose partial JSON. `os.replace` is atomic for visibility but can overwrite an earlier fossil. A second contents-copy step after serialization is not atomic. The existing named-checkpoint pattern already uses exclusive hard-link publication, so reusing it avoids another unfamiliar mechanism.
+
+**Trade-offs and limits:** Hard links must work on the target filesystem; failure means no final fossil publication, rather than silent unsafe fallback. A crash may leave a separate `*.json.tmp` file, never an incomplete *new* final fossil from that interrupted serialization. This does not promise `fsync`, real power-loss durability, cross-file journal/fossil atomicity, coordinated independent writers or iPhone/Pythonista support. The original `Worldheart simulator` remains unchanged. Exact candidate and merged-main checks belong in [PR #8](https://github.com/levelinglucy/Worldheart/pull/8). Revisit hard-link portability only with device evidence or a similarly exclusive complete-only alternative.
 
 ## Roadmap and release gates
 
