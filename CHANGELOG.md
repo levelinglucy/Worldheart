@@ -2,6 +2,12 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
+## Unreleased — observational fossil collision protection
+
+- Retained distinct anomaly fossils from the same tick or different seeded universes by allocating an exclusive `fossil_<tick>[_NNN].json` filename; occupied files and symlinks are never truncated or followed.
+- Added three test-first synthetic collision cases; normal first-file naming and private-fork isolation stay intact. See [decision 007](./DEV_NOTES.md#engineering-decision-007--preserve-colliding-observational-fossils) and [PR #7](https://github.com/levelinglucy/Worldheart/pull/7) for validation and trade-offs.
+- Fossil publication remains best-effort and not crash-atomic, and iPhone/filesystem behaviour is unverified; this is still an unreleased source candidate.
+
 ## Unreleased — dangling latest-checkpoint path preservation
 
 - A broken symlink at the rolling latest-checkpoint path now enters failed-recovery refusal instead of silently allowing Genesis and subsequent replacement of the link; legitimate missing paths and healthy resume are unchanged.

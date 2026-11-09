@@ -694,10 +694,21 @@ class World:
             return  # Fossil remains inspectable on the private fork only.
         try:
             safe_mkdir(SAVE_DIR)
-            fn = "fossil_%012d.json" % self.tick
-            with open(os.path.join(SAVE_DIR, fn), "w", encoding="utf-8") as f:
-                json.dump(fossil, f, indent=2)
+            root = "fossil_%012d" % self.tick
+            # Multiple worlds and anomalies can share a tick. Never truncate
+            # existing fossil evidence or follow an occupied symlink.
+            for slot in range(1000):
+                name = root + ("_%03d" % slot if slot else "") + ".json"
+                try:
+                    with open(os.path.join(SAVE_DIR, name), "x", encoding="utf-8") as f:
+                        json.dump(fossil, f, indent=2)
+                    break
+                except FileExistsError:
+                    continue
+            else:
+                raise FileExistsError("No free fossil name for tick %s" % self.tick)
         except Exception:
+            # Disk fossils are best-effort; in-memory observer data is retained.
             pass
 
     # ─────────────────────────────────────────────────────────────────────────
