@@ -14,6 +14,10 @@
 
 The automated tests use an authentic *generated* old CLI checkpoint, including the `__main__.World` pickle class reference. They do **not** prove that every historical Python/Pythonista version or a real individual's save can be recovered. They also do not make `pickle` safe for untrusted files.
 
+## Candidate checkpoint-alias compatibility change
+
+[PR #10](https://github.com/levelinglucy/Worldheart/pull/10) proposes rejecting checkpoint paths that are final-component symlinks, multiply-linked files or special files (such as named pipes). The prior code could load an alias but replace only the alias on save, silently splitting histories; opening a FIFO for recovery could hang. In the proposed candidate, preserve the whole original directory and use a **separate, ordinary single-linked checkpoint copy** in a private test directory. Do not delete the original symlink or manipulate another linked file automatically. This change is still reviewable and is not a published release. Path checks do not protect against concurrent swaps, parent-directory substitution, unsafe untrusted pickle, or power loss.
+
 ## If resuming fails
 
 A dangling symlink occupying the latest-checkpoint filename counts as existing evidence rather than an empty slot: preserve it and investigate its target on a disposable copy. The candidate now stops with a nonzero exit status after a failed attempted resume; it does **not** offer a new Genesis that could overwrite the checkpoint during an ordinary save. Preserve the entire data folder, including `*.tmp`, journal and fossil files, even if the primary looks corrupt. Test recovery only on a trusted copy in a separate working directory. An explicit **n** at the resume prompt still starts anew; saving that new world may replace the prior checkpoint. Choose a **clean working directory** if you want to keep both histories.
