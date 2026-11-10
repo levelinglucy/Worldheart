@@ -2,6 +2,11 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
+## Unreleased — checkpoint alias and special-path refusal (proposed, not merged)
+
+- [PR #10](https://github.com/levelinglucy/Worldheart/pull/10) refuses symlinks, multiply-linked files and special filesystem objects at checkpoint load and rolling-save destinations, preventing ordinary alias-splitting replacement and stable-path FIFO blocking; valid direct single-linked checkpoints and the save format are unchanged.
+- Four synthetic regressions failed on the predecessor and passed with 31/31 checks at source/test candidate `7b3672be` ([decision 010](./DEV_NOTES.md#engineering-decision-010--refuse-checkpoint-aliases-and-blocking-special-files)). This intentionally drops checkpoint-alias loading; concurrent swaps, durability and iPhone support are not certified, so compatibility review remains open.
+
 ## Unreleased — safe observational event journal paths
 
 - Avoid following final-component event-journal symlinks or waiting on FIFO writers; only append to checked regular-file descriptors with no-follow/nonblocking OS guards, retaining in-memory observations when disk logging is unavailable.
