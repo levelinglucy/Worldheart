@@ -16,6 +16,7 @@
 # Standard library only.
 
 import os
+import stat
 import sys
 import json
 import math
@@ -198,8 +199,28 @@ class World:
             return  # Counterfactual forks keep events in memory only.
         try:
             safe_mkdir(SAVE_DIR)
-            with open(os.path.join(SAVE_DIR, EVENT_FILE), "a", encoding="utf-8") as f:
-                f.write(json.dumps(e, separators=(",", ":")) + "\n")
+            # Journal writes are best-effort, never an excuse to follow a
+            # final-component symlink or wait for a named pipe's reader.
+            # Without both OS guards, retain the in-memory event only.
+            nofollow = getattr(os, "O_NOFOLLOW", None)
+            nonblock = getattr(os, "O_NONBLOCK", None)
+            if nofollow is None or nonblock is None:
+                return
+            record = json.dumps(e, separators=(",", ":")) + "\n"
+            path = os.path.join(SAVE_DIR, EVENT_FILE)
+            fd = os.open(
+                path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | nofollow | nonblock,
+                0o600,
+            )
+            try:
+                if not stat.S_ISREG(os.fstat(fd).st_mode):
+                    return  # No writing to existing FIFOs, devices or sockets.
+                with os.fdopen(fd, "a", encoding="utf-8") as journal:
+                    fd = None  # The context manager now owns this descriptor.
+                    journal.write(record)
+            finally:
+                if fd is not None:
+                    os.close(fd)
         except Exception:
             pass
 
