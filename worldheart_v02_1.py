@@ -99,6 +99,24 @@ def safe_mkdir(path):
     except Exception:
         pass
 
+def require_direct_checkpoint_path(filename):
+    """Refuse checkpoint aliases/special files before read or rolling replace.
+
+    A hard-linked checkpoint can silently fork history when os.replace changes
+    just one directory entry. This is a stable-path check, not a filesystem
+    transaction or a defence against concurrent path swaps.
+    """
+    try:
+        info = os.lstat(filename)
+    except FileNotFoundError:
+        return  # A fresh rolling checkpoint is allowed.
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        raise OSError(
+            "Unsafe checkpoint path %r: use a direct, single-linked regular "
+            "file in a private working directory" % filename
+        )
+
+
 def clear_screen():
     # Pythonista's console does not interpret normal ANSI clear sequences.
     # Form-feed is harmless in ordinary terminals and avoids visible "[2J[H".
@@ -758,6 +776,8 @@ class World:
             raise RuntimeError("Counterfactual fork: disk persistence is disabled")
         safe_mkdir(SAVE_DIR)
         filename = filename or os.path.join(SAVE_DIR, SAVE_FILE)
+        if replace_existing:
+            require_direct_checkpoint_path(filename)
         state = pickle.dumps(self, protocol=pickle.HIGHEST_PROTOCOL)
         payload = zlib.compress(state, 6)
         envelope = {
@@ -778,7 +798,10 @@ class World:
                 "Unresolved checkpoint temp %r; preserve and inspect it before saving" % temp
             ) from exc
         if replace_existing:
-            # The rolling latest checkpoint deliberately replaces its predecessor.
+            # Recheck after staging: never knowingly replace an alias, special
+            # file, or multiply-linked checkpoint that appeared meanwhile.
+            # A concurrent swap after this check remains outside this guarantee.
+            require_direct_checkpoint_path(filename)
             os.replace(temp, filename)
         else:
             # Named snapshots must not replace an older world, even when two
@@ -818,6 +841,9 @@ class World:
     @staticmethod
     def load(filename=None):
         filename = filename or os.path.join(SAVE_DIR, SAVE_FILE)
+        # Reject stable FIFOs before a blocking open and aliases before recovery.
+        # This is not race-free against another process replacing the path.
+        require_direct_checkpoint_path(filename)
         with open(filename, "r", encoding="utf-8") as f:
             envelope = json.load(f)
         payload = bytes.fromhex(envelope["payload"])
