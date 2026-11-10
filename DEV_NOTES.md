@@ -2,11 +2,13 @@
 
 ## Development summary
 
-**Goal:** Preserve live-world state and recoverable evidence, including complete-only observational fossil publication. **Candidate:** `v0.2.1-rc1` source work; no stable tag or release. Historical `Worldheart simulator` preserved unchanged.
-**Integration / validation / release:** Previous checkpoint and fossil-collision fixes through [PR #7](https://github.com/levelinglucy/Worldheart/pull/7) are integrated on main. Complete-only fossil publication is recorded in [PR #8](https://github.com/levelinglucy/Worldheart/pull/8), the authoritative source for its integration and exact revision-specific checks. No device, durability or stable publication claim.
-**Latest meaningful implementation:** JSON fossils are serialized into unique temporary files and exclusively linked to final names only once closed successfully. In-memory observations survive storage failures, and old final names remain protected. See [decision 008](#engineering-decision-008--complete-only-observational-fossil-publication). The event journal and fossil files are **not** one transaction.
-**Next steps:** Validate complete-only publication and failure injection on the precise candidate; revisit recovery/rollback and portability evidence before any stable promotion. Keep third-party or untrusted pickle out of recovery testing.
-[Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery/rollback guide](./docs/RECOVERY.md) · [Fossil safety tests](./tests/test_fossil_complete_publication.py).
+**Goal:** Preserve live-world checkpoints and recoverable observational evidence without misleading or unsafe filesystem side effects. **Candidate:** `v0.2.1-rc1` source work; historical `Worldheart simulator` unchanged.
+**Integration:** Complete-only fossil publication [PR #8](https://github.com/levelinglucy/Worldheart/pull/8) is on main at `d28642e8`. Journal path safety is proposed on [PR #9](https://github.com/levelinglucy/Worldheart/pull/9); consult that PR for the current integration state.
+**Validation:** [PR #8 exact-main CI](https://github.com/levelinglucy/Worldheart/actions/runs/42665091204) passed 22/22 on hosted Linux. PR #9 holds its own test-first failure and exact candidate evidence; earlier checks do not certify changed files.
+**Release:** Untagged and unpublished. Device/hard-link support, journal durability, multiwriter coordination, power loss and safe handling of untrusted pickle remain unverified.
+**Next:** Check PR #9 at its exact head, including the ordinary journal path; integrate only if validated, then focus on substantive recovery/platform evidence rather than bookkeeping.
+
+[Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery/rollback guide](./docs/RECOVERY.md) · [Journal path regressions](./tests/test_journal_path_safety.py).
 
 ## How the original code works
 
@@ -95,6 +97,17 @@ The counterfactual probe uses `world.fork(disk_writes_enabled=False)` for both e
 **Alternatives:** Direct exclusive final-name writes can expose partial JSON. `os.replace` is atomic for visibility but can overwrite an earlier fossil. A second contents-copy step after serialization is not atomic. The existing named-checkpoint pattern already uses exclusive hard-link publication, so reusing it avoids another unfamiliar mechanism.
 
 **Trade-offs and limits:** Hard links must work on the target filesystem; failure means no final fossil publication, rather than silent unsafe fallback. A crash may leave a separate `*.json.tmp` file, never an incomplete *new* final fossil from that interrupted serialization. This does not promise `fsync`, real power-loss durability, cross-file journal/fossil atomicity, coordinated independent writers or iPhone/Pythonista support. The original `Worldheart simulator` remains unchanged. Exact candidate and merged-main checks belong in [PR #8](https://github.com/levelinglucy/Worldheart/pull/8). Revisit hard-link portability only with device evidence or a similarly exclusive complete-only alternative.
+
+
+## Engineering decision 009 — make observer journal append nonblocking and no-follow
+
+**Confirmed predecessor:** `World.event()` used plain `open(path, "a")` for the JSONL observer journal. In disposable fixtures, a final-component symlink redirected both GENESIS and ordinary events into an unrelated existing file, while a FIFO in the journal slot blocked world startup waiting for a reader. [PR #9 test-first CI](https://github.com/levelinglucy/Worldheart/actions/runs/42761417590) failed those two cases (23 of 25 checks passed) on the predecessor.
+
+**Decision:** Keep the event in the world's bounded in-memory history first. Serialize the record and open the final journal component using `O_NOFOLLOW | O_NONBLOCK | O_APPEND | O_CREAT`, then require `fstat()` to report a regular file before appending. The descriptor is closed on every path. A new journal is owner-only (mode `0600`, subject to the umask); existing regular-file permissions are unchanged. On unsupported OS guards, unsafe paths or other I/O errors, skip this **best-effort disk journal** rather than follow/block on it. Ordinary regular-file event append and the checkpoint/fossil formats remain unchanged.
+
+**Alternatives:** Check `is_symlink()` before normal `open()` (race between check and open); apply `O_NOFOLLOW` without `O_NONBLOCK` (FIFO can still hang); or require a writable journal for all simulation steps (would turn optional observer I/O into a crash path). Descriptor-level checks are a narrow, conservative repair without a new storage subsystem.
+
+**Limits:** This does not defend against symlinks or changes in **parent directories**, existing hard-link aliases, network or adversarial filesystems, concurrent append interleaving, crash/power-loss loss, cross-file journaling transactions or untrusted pickle. A journal failure is still silent and its event is retained only in memory, as before. Revisit a checked, versioned journal and path policy with a substantive persistence redesign or verified target-device evidence. Exact post-fix validation and integration belong in [PR #9](https://github.com/levelinglucy/Worldheart/pull/9).
 
 ## Roadmap and release gates
 
