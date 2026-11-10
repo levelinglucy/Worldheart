@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "worldheart_v02_1.py"
@@ -84,6 +85,32 @@ class JournalPathTests(unittest.TestCase):
         self.assertEqual(finished.returncode, 0, finished.stderr)
         self.assertIn("ok", finished.stdout)
         self.assertTrue(journal.is_fifo())
+
+
+    def test_missing_os_guard_keeps_memory_and_skips_disk_journal(self):
+        world = worldheart.World(seed=904)
+        journal = self.folder / worldheart.EVENT_FILE
+        before = journal.read_bytes()
+        with mock.patch.object(worldheart.os, "O_NOFOLLOW", None):
+            world.event("SKIPPED_TO_DISK", {"why": "unsafe platform"})
+        self.assertEqual(journal.read_bytes(), before)
+        self.assertEqual(world.events[-1]["kind"], "SKIPPED_TO_DISK")
+
+    @unittest.skipUnless(hasattr(os, "mkfifo") and hasattr(os, "O_NONBLOCK"),
+                         "nonblocking FIFO support unavailable")
+    def test_fifo_with_reader_does_not_receive_event_bytes(self):
+        journal = self.folder / worldheart.EVENT_FILE
+        try:
+            os.mkfifo(str(journal))
+        except OSError as exc:
+            self.skipTest("FIFO unavailable: %s" % exc)
+        reader_fd = os.open(str(journal), os.O_RDONLY | os.O_NONBLOCK)
+        try:
+            world = worldheart.World(seed=905)
+            self.assertEqual(world.events[-1]["kind"], "GENESIS")
+            self.assertEqual(os.read(reader_fd, 4096), b"")
+        finally:
+            os.close(reader_fd)
 
 
 if __name__ == "__main__":
