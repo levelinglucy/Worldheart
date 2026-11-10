@@ -2,6 +2,11 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
+## Unreleased — safe observational event journal paths
+
+- Avoid following final-component event-journal symlinks or waiting on FIFO writers; only append to checked regular-file descriptors with no-follow/nonblocking OS guards, retaining in-memory observations when disk logging is unavailable.
+- New journals are created owner-only; existing regular-file append and save formats remain. Three synthetic checks cover ordinary append, symlink preservation and nonblocking startup. No parent-directory, hard-link, concurrent append, durability or iPhone guarantee. See [decision 009](./DEV_NOTES.md#engineering-decision-009--make-observer-journal-append-nonblocking-and-no-follow) and [PR #9](https://github.com/levelinglucy/Worldheart/pull/9).
+
 ## Unreleased — complete-only observational fossil publication
 
 - Serialize each new fossil as a unique temporary JSON file before exclusively linking a fully written document to a free final name; keep prior fossils and occupied symlinks untouched, with in-memory evidence retained on I/O failure.
