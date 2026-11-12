@@ -26,6 +26,22 @@ python3 inspect_checkpoint.py WORLDHEART_V02_DATA/worldheart_v02_latest.wh
 
 The utility returns JSON metadata (version, seed, tick, payload length and BLAKE2b checksum comparison), with exit codes 0 = checksum matches, 1 = mismatch, 2 = refused/invalid input. It makes no writes, refuses symlinks, multiply linked files, nonregular inputs and files above 16 MiB, and requires no-follow/nonblocking OS flags. A checksum match **does not authenticate the sender or establish safe pickle loading, semantic validity or recoverability**. Parent-directory path substitution and concurrent mutations are not fully defended; inspect copies in a controlled private directory. Pythonista flag support remains unverified. See [recovery guidance](./docs/RECOVERY.md).
 
+For cautious review of **two** preserved checkpoint candidates (for example, a
+rolling primary and an interrupted-save temporary file), use:
+
+```bash
+python3 inspect_checkpoint.py WORLDHEART_V02_DATA/worldheart_v02_latest.wh --against WORLDHEART_V02_DATA/worldheart_v02_latest.wh.tmp
+```
+
+This reads each envelope independently and does not change either file. If both
+checksums match and the saved version and seed agree, it reports the signed tick
+difference and which **recorded tick** is higher. Otherwise it declines to rank
+them. A mismatch yields exit code 1; malformed/unreadable input yields 2 with
+no partial JSON report. **Neither a higher tick nor matching seed/version proves
+a newer or recoverable world**; never promote, delete or load a candidate on
+this report alone. Keep both originals and inspect copies in a trusted directory.
+The single-file JSON output and exit codes remain unchanged.
+
 ## What a probe actually measures
 
 A probe forks the same seeded state into a control world and one with its oldest persistent structure removed; both advance for a bounded horizon. Differences in counts or diversity describe **model behaviour**, not a claim about consciousness, intent or life.

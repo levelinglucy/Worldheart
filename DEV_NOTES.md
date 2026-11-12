@@ -6,9 +6,33 @@
 **Integration:** Journal-path safety is integrated in [PR #9](https://github.com/levelinglucy/Worldheart/pull/9). The independent [checkpoint alias proposal PR #10](https://github.com/levelinglucy/Worldheart/pull/10) remains reviewable for its deliberate compatibility change. The separate [envelope inspector PR #11](https://github.com/levelinglucy/Worldheart/pull/11) is authoritative for its integration status, changed files and exact revision.
 **Validation:** The inspector's seven new synthetic tests passed locally on CPython 3.13.5. Its exact candidate and hosted full-suite results belong to [PR #11](https://github.com/levelinglucy/Worldheart/pull/11); existing [PR #9 merged-main CI](https://github.com/levelinglucy/Worldheart/actions/runs/42761973300) passed 27/27 on hosted Ubuntu. No result establishes untrusted pickle safety.
 **Release:** Source candidates only; no stable tag/release. iPhone flag support, real-world recovery, power-loss durability, parent-path concurrency and multiwriter protections are unverified.
-**Next:** Preserve and inspect real-world checkpoints only in authorized disposable copies, and consider safer portable recovery as a separately versioned milestone. Do not merge PR #10's checkpoint alias behaviour without its compatibility decision.
+**Next:** Review the read-only two-envelope triage candidate on its own branch; preserve real-world checkpoints only in authorized disposable copies, and consider safer portable recovery as a separately versioned milestone. Do not merge PR #10's checkpoint alias behaviour without its compatibility decision.
 
 [Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery/rollback guide](./docs/RECOVERY.md).
+
+## Read-only checkpoint pair triage — proposal
+
+**Problem:** The primary checkpoint and an interrupted-save `.wh.tmp` file
+may both need preservation, but interpreting their outer version/seed/tick
+metadata by hand is error-prone. Automatically choosing a seemingly newer save
+would be dangerous because checksums are unkeyed and tick values are claims in
+an untrusted JSON envelope.
+
+**Decision:** Extend the standalone `inspect_checkpoint.py` with optional
+`--against PATH`. Reuse the existing strict, 16 MiB, no-follow and nonblocking
+inspector independently for each path. Preserve single-file mode. Compare
+recorded ticks only when both checksums match and version/seed agree; otherwise
+report why the data are not ranked. Refuse a malformed second envelope without
+emitting a partial result. Never decompress, unpickle, recover, write or promote
+a checkpoint.
+
+**Alternatives:** A separate parser would duplicate the trust boundary; a
+"choose latest" command could destroy recovery evidence; a raw byte diff
+does not explain the saved envelope. This is a metadata triage aid, not a
+lineage check: two distinct worlds can share version, seed and tick; the hash
+can be forged; reads are not a simultaneous atomic snapshot. Test against
+synthetic disposable files only. Reconsider with a signed, versioned,
+non-pickle checkpoint format and trustworthy generation/lineage metadata.
 
 ## How the original code works
 

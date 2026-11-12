@@ -1,4 +1,4 @@
-"""Read-only Worldheart envelope inspector; never unpickles or decompresses saves.
+"""Read-only Worldheart envelope and pair inspector; never unpickles saves.
 
 This is a bounded diagnostic for untrusted checkpoint *metadata*, not a validator
 of safe world objects, source authenticity, or recoverability.
@@ -87,17 +87,57 @@ def inspect(path):
     }
 
 
+def compare_inspections(first, second):
+    """Compare outer recorded identity and ticks only when both checksums match.
+
+    Even apparently matching envelopes cannot prove chronology or common ancestry.
+    A bad checksum or different claimed seed/version suppresses tick ordering.
+    """
+    result = {
+        "status": "not_comparable",
+        "second_minus_first_tick": None,
+        "higher_recorded_tick": None,
+    }
+    if first["status"] != "checksum_matches" or second["status"] != "checksum_matches":
+        result["status"] = "checksum_mismatch"
+    elif first["version"] != second["version"] or first["seed"] != second["seed"]:
+        result["status"] = "different_recorded_identity"
+    else:
+        delta = second["tick"] - first["tick"]
+        result["status"] = "same_recorded_identity"
+        result["second_minus_first_tick"] = delta
+        result["higher_recorded_tick"] = ("second" if delta > 0 else
+                                           "first" if delta < 0 else "equal")
+    return result
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("checkpoint", help="Existing Worldheart .wh file to inspect without modification")
+    parser.add_argument("--against", metavar="CHECKPOINT",
+                        help="Optionally compare a second envelope without loading either pickle")
     args = parser.parse_args(argv)
     try:
-        result = inspect(args.checkpoint)
+        first = inspect(args.checkpoint)
+        second = inspect(args.against) if args.against is not None else None
     except (OSError, ValueError, UnicodeError, RecursionError) as exc:
         print("Inspection refused: %s" % exc, file=sys.stderr)
         return 2
+    if second is None:
+        print(json.dumps(first, sort_keys=True))
+        return 0 if first["status"] == "checksum_matches" else 1
+
+    result = {
+        "first": first,
+        "second": second,
+        "comparison": compare_inspections(first, second),
+        "warning": (
+            "Recorded tick order is not proof of chronology, shared lineage, "
+            "authenticity, safe pickle loading or recoverability"
+        ),
+    }
     print(json.dumps(result, sort_keys=True))
-    return 0 if result["status"] == "checksum_matches" else 1
+    return 0 if first["status"] == second["status"] == "checksum_matches" else 1
 
 
 if __name__ == "__main__":
