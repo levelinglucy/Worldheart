@@ -13,6 +13,8 @@ import stat
 import sys
 
 MAX_FILE_BYTES = 16 * 1024 * 1024
+# Bound decimal-to-int conversion even on Python runtimes without a built-in cap.
+MAX_JSON_INT_DIGITS = 4096
 
 
 def _unique_pairs(pairs):
@@ -26,6 +28,14 @@ def _unique_pairs(pairs):
 
 def _reject_constant(value):
     raise ValueError("Invalid JSON constant: %s" % value)
+
+
+def _bounded_integer(value):
+    # The JSON decoder calls this for every integer, including unused fields.
+    # Avoid costly conversion of untrusted megabyte-scale integer literals.
+    if len(value) - (1 if value.startswith("-") else 0) > MAX_JSON_INT_DIGITS:
+        raise ValueError("Checkpoint JSON integer exceeds %d digits" % MAX_JSON_INT_DIGITS)
+    return int(value)
 
 
 def inspect(path):
@@ -52,7 +62,7 @@ def inspect(path):
     if len(raw) > MAX_FILE_BYTES:
         raise ValueError("Checkpoint exceeds the 16 MiB inspection limit")
     envelope = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_pairs,
-                          parse_constant=_reject_constant)
+                          parse_constant=_reject_constant, parse_int=_bounded_integer)
     if not isinstance(envelope, dict):
         raise ValueError("Checkpoint envelope must be a JSON object")
     for key in ("version", "seed", "tick", "payload", "hash"):

@@ -24,7 +24,7 @@ Before deciding whether to resume a **trusted** checkpoint, you can inspect its 
 python3 inspect_checkpoint.py WORLDHEART_V02_DATA/worldheart_v02_latest.wh
 ```
 
-The utility returns JSON metadata (version, seed, tick, payload length and BLAKE2b checksum comparison), with exit codes 0 = checksum matches, 1 = mismatch, 2 = refused/invalid input. It makes no writes, refuses symlinks, multiply linked files, nonregular inputs and files above 16 MiB, and requires no-follow/nonblocking OS flags. A checksum match **does not authenticate the sender or establish safe pickle loading, semantic validity or recoverability**. Parent-directory path substitution and concurrent mutations are not fully defended; inspect copies in a controlled private directory. Pythonista flag support remains unverified. See [recovery guidance](./docs/RECOVERY.md).
+The utility returns JSON metadata (version, seed, tick, payload length and BLAKE2b checksum comparison), with exit codes 0 = checksum matches, 1 = mismatch, 2 = refused/invalid input. It makes no writes, refuses symlinks, multiply linked files, nonregular inputs and files above 16 MiB, and JSON integer tokens longer than 4096 decimal digits; it requires no-follow/nonblocking OS flags. A checksum match **does not authenticate the sender or establish safe pickle loading, semantic validity or recoverability**. Parent-directory path substitution and concurrent mutations are not fully defended; inspect copies in a controlled private directory. Pythonista flag support remains unverified. See [recovery guidance](./docs/RECOVERY.md).
 
 For cautious review of **two** preserved checkpoint candidates (for example, a
 rolling primary and an interrupted-save temporary file), use:

@@ -2,6 +2,10 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
+## Unreleased — bounded checkpoint JSON integer conversion
+
+- Set an explicit 4096-digit cap on JSON integer tokens before conversion, including unknown nested fields, to avoid costly parsing on Python versions or settings without their own limit. Normal checkpoints, checksum inspection and paired tick comparisons remain unchanged; unusually enormous integer fields are refused.
+
 ## Unreleased — paired checkpoint envelope triage
 
 - Add opt-in `--against` to the read-only metadata inspector so two preserved checkpoint candidates can be evaluated without loading either payload. Rank **recorded ticks** only when both checksums match and claimed seed/version agree; otherwise decline to rank.
