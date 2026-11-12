@@ -2,6 +2,11 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
+## Unreleased — paired checkpoint envelope triage
+
+- Add opt-in `--against` to the read-only metadata inspector so two preserved checkpoint candidates can be evaluated without loading either payload. Rank **recorded ticks** only when both checksums match and claimed seed/version agree; otherwise decline to rank.
+- Keep single-file JSON/exit behaviour, original world engine and save formats unchanged. Synthetic tests check equal/reversed ticks, unrelated versions/seeds, checksum refusal, malformed second input and byte-for-byte noninterference. This does not prove chronology, authenticity, recovery or iPhone/power-loss safety.
+
 ## Unreleased — bounded checkpoint envelope inspector
 
 - Add `inspect_checkpoint.py` for read-only outer JSON metadata and BLAKE2b checksum checks without decompression or unpickling; preserve existing Worldheart engine and save formats.
