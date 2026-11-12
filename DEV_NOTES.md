@@ -2,11 +2,11 @@
 
 ## Development summary
 
-**Goal:** Protect Worldheart's saved ecology and offer safe, bounded inspection of outer checkpoint metadata without executing embedded pickle. Historical `Worldheart simulator` is unchanged.
-**Integration:** Main `8bc08db3` contains [journal safety PR #9](https://github.com/levelinglucy/Worldheart/pull/9). [Checkpoint alias PR #10](https://github.com/levelinglucy/Worldheart/pull/10) is tested but intentionally unmerged for a compatibility decision. **Proposed on topic branch:** `inspect_checkpoint.py` metadata-only reader and synthetic regression suite.
-**Validation:** The proposed inspector has seven locally passing tests and syntax checks on CPython 3.13.5 (exact PR/head and hosted results to be recorded on the PR after observation); existing [PR #9 exact-main CI](https://github.com/levelinglucy/Worldheart/actions/runs/42761973300) passed 27/27 on hosted Ubuntu. Tests do not certify untrusted pickle safety.
-**Release:** All are source candidates; no stable tag/release. iPhone flag support, trusted real-world recovery, power-loss durability, concurrent path replacement and multiwriter protections are unverified.
-**Next:** Validate this inspector on its exact candidate revision, review required checks and merge only if satisfied; keep PR #10's compatibility question separate. Preserve and test real-world checkpoints only in trusted disposable copies.
+**Goal:** Protect Worldheart's saved ecology and support bounded inspection of outer checkpoint metadata without executing embedded pickle. The historical `Worldheart simulator` is unchanged.
+**Integration:** Journal-path safety is integrated in [PR #9](https://github.com/levelinglucy/Worldheart/pull/9). The independent [checkpoint alias proposal PR #10](https://github.com/levelinglucy/Worldheart/pull/10) remains reviewable for its deliberate compatibility change. The separate [envelope inspector PR #11](https://github.com/levelinglucy/Worldheart/pull/11) is authoritative for its integration status, changed files and exact revision.
+**Validation:** The inspector's seven new synthetic tests passed locally on CPython 3.13.5. Its exact candidate and hosted full-suite results belong to [PR #11](https://github.com/levelinglucy/Worldheart/pull/11); existing [PR #9 merged-main CI](https://github.com/levelinglucy/Worldheart/actions/runs/42761973300) passed 27/27 on hosted Ubuntu. No result establishes untrusted pickle safety.
+**Release:** Source candidates only; no stable tag/release. iPhone flag support, real-world recovery, power-loss durability, parent-path concurrency and multiwriter protections are unverified.
+**Next:** Preserve and inspect real-world checkpoints only in authorized disposable copies, and consider safer portable recovery as a separately versioned milestone. Do not merge PR #10's checkpoint alias behaviour without its compatibility decision.
 
 [Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery/rollback guide](./docs/RECOVERY.md).
 
