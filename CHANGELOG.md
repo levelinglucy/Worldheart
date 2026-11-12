@@ -2,6 +2,11 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
+## Unreleased — bounded checkpoint envelope inspector
+
+- Add `inspect_checkpoint.py` for read-only outer JSON metadata and BLAKE2b checksum checks without decompression or unpickling; preserve existing Worldheart engine and save formats.
+- Refuse unsafe/unsupported file types, duplicate JSON fields, malformed values and input above 16 MiB; add seven synthetic tests. Checksum agreement is **not** authenticity or evidence of safe/recoverable pickle. The utility is intended for controlled copies; Pythonista/runner validation and concurrency/durability remain unverified.
+
 ## Unreleased — safe observational event journal paths
 
 - Avoid following final-component event-journal symlinks or waiting on FIFO writers; only append to checked regular-file descriptors with no-follow/nonblocking OS guards, retaining in-memory observations when disk logging is unavailable.

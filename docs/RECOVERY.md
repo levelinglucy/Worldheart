@@ -14,6 +14,10 @@
 
 The automated tests use an authentic *generated* old CLI checkpoint, including the `__main__.World` pickle class reference. They do **not** prove that every historical Python/Pythonista version or a real individual's save can be recovered. They also do not make `pickle` safe for untrusted files.
 
+## Optional safe metadata check (no unpickling)
+
+To examine a checkpoint envelope without trying to start the world, run `python3 inspect_checkpoint.py WORLDHEART_V02_DATA/worldheart_v02_latest.wh` on a **copy** in a controlled directory. This reads and checks the outer JSON envelope and its BLAKE2b-64 checksum, but neither decompresses the payload nor calls `pickle.loads`. Exit status 0 means the checksum matches, 1 means it does not, and 2 means the file is malformed, an unsafe path type, over 16 MiB, or cannot be inspected safely. The original file is not changed. A checksum match proves neither authenticity nor safe recovery. It also does not establish that the compressed inner pickle can be restored. The inspector requires OS no-follow/nonblocking flags and direct single-linked regular files; on unsupported devices it refuses rather than relaxing this gate. Do not use a checksum match as permission to load an untrusted checkpoint.
+
 ## If resuming fails
 
 A dangling symlink occupying the latest-checkpoint filename counts as existing evidence rather than an empty slot: preserve it and investigate its target on a disposable copy. The candidate now stops with a nonzero exit status after a failed attempted resume; it does **not** offer a new Genesis that could overwrite the checkpoint during an ordinary save. Preserve the entire data folder, including `*.tmp`, journal and fossil files, even if the primary looks corrupt. Test recovery only on a trusted copy in a separate working directory. An explicit **n** at the resume prompt still starts anew; saving that new world may replace the prior checkpoint. Choose a **clean working directory** if you want to keep both histories.
