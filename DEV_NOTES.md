@@ -2,13 +2,13 @@
 
 ## Development summary
 
-**Goal:** Preserve live-world checkpoints and recoverable observational evidence without misleading or unsafe filesystem side effects. **Candidate:** `v0.2.1-rc1` source work; historical `Worldheart simulator` unchanged.
-**Integration:** Complete-only fossil publication [PR #8](https://github.com/levelinglucy/Worldheart/pull/8) is on main at `d28642e8`. Journal path safety is proposed on [PR #9](https://github.com/levelinglucy/Worldheart/pull/9); consult that PR for the current integration state.
-**Validation:** [PR #8 exact-main CI](https://github.com/levelinglucy/Worldheart/actions/runs/42665091204) passed 22/22 on hosted Linux. PR #9 holds its own test-first failure and exact candidate evidence; earlier checks do not certify changed files.
-**Release:** Untagged and unpublished. Device/hard-link support, journal durability, multiwriter coordination, power loss and safe handling of untrusted pickle remain unverified.
-**Next:** Check PR #9 at its exact head, including the ordinary journal path; integrate only if validated, then focus on substantive recovery/platform evidence rather than bookkeeping.
+**Goal:** Protect Worldheart's saved ecology and offer safe, bounded inspection of outer checkpoint metadata without executing embedded pickle. Historical `Worldheart simulator` is unchanged.
+**Integration:** Main `8bc08db3` contains [journal safety PR #9](https://github.com/levelinglucy/Worldheart/pull/9). [Checkpoint alias PR #10](https://github.com/levelinglucy/Worldheart/pull/10) is tested but intentionally unmerged for a compatibility decision. **Proposed on topic branch:** `inspect_checkpoint.py` metadata-only reader and synthetic regression suite.
+**Validation:** The proposed inspector has seven locally passing tests and syntax checks on CPython 3.11 (exact PR/head and hosted results to be recorded on the PR after observation); existing [PR #9 exact-main CI](https://github.com/levelinglucy/Worldheart/actions/runs/42761973300) passed 27/27 on hosted Ubuntu. Tests do not certify untrusted pickle safety.
+**Release:** All are source candidates; no stable tag/release. iPhone flag support, trusted real-world recovery, power-loss durability, concurrent path replacement and multiwriter protections are unverified.
+**Next:** Validate this inspector on its exact candidate revision, review required checks and merge only if satisfied; keep PR #10's compatibility question separate. Preserve and test real-world checkpoints only in trusted disposable copies.
 
-[Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery/rollback guide](./docs/RECOVERY.md) · [Journal path regressions](./tests/test_journal_path_safety.py).
+[Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery/rollback guide](./docs/RECOVERY.md).
 
 ## How the original code works
 
