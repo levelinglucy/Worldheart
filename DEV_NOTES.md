@@ -3,14 +3,36 @@
 ## Development summary
 
 **Goal:** Protect Worldheart's saved ecology and support bounded inspection of outer checkpoint metadata without executing embedded pickle. The historical `Worldheart simulator` is unchanged.
-**Integration:** Journal-path safety is integrated in [PR #9](https://github.com/levelinglucy/Worldheart/pull/9). The independent [checkpoint alias proposal PR #10](https://github.com/levelinglucy/Worldheart/pull/10) remains reviewable for its deliberate compatibility change. The separate [envelope inspector PR #11](https://github.com/levelinglucy/Worldheart/pull/11) is authoritative for its integration status, changed files and exact revision.
-**Validation:** The inspector's seven new synthetic tests passed locally on CPython 3.13.5. Its exact candidate and hosted full-suite results belong to [PR #11](https://github.com/levelinglucy/Worldheart/pull/11); existing [PR #9 merged-main CI](https://github.com/levelinglucy/Worldheart/actions/runs/42761973300) passed 27/27 on hosted Ubuntu. No result establishes untrusted pickle safety.
+**Integration:** Read-only inspector [PR #11](https://github.com/levelinglucy/Worldheart/pull/11) and paired triage [PR #12](https://github.com/levelinglucy/Worldheart/pull/12) are merged at `c4544b71`. The [checkpoint alias proposal PR #10](https://github.com/levelinglucy/Worldheart/pull/10) remains unmerged for its compatibility decision. The JSON integer-token guard is proposed separately on its own branch.
+**Validation:** [PR #12 exact merged-main CI](https://github.com/levelinglucy/Worldheart/actions/runs/43154514667) passed 39/39 hosted Ubuntu tests at `c4544b71`. The bounded-integer candidate has three independent locally tested cases on Linux CPython 3.13.5; its complete candidate CI must be checked separately. No result establishes untrusted pickle safety.
 **Release:** Source candidates only; no stable tag/release. iPhone flag support, real-world recovery, power-loss durability, parent-path concurrency and multiwriter protections are unverified.
-**Next:** Review the read-only two-envelope triage candidate on its own branch; preserve real-world checkpoints only in authorized disposable copies, and consider safer portable recovery as a separately versioned milestone. Do not merge PR #10's checkpoint alias behaviour without its compatibility decision.
+**Next:** Validate and review the integer-token bound on the exact candidate; then assess portable recovery as a separate versioned milestone. Do not merge PR #10's checkpoint alias behaviour without its compatibility decision.
 
 [Changelog](./CHANGELOG.md) · [README](./README.md) · [Trusted recovery/rollback guide](./docs/RECOVERY.md).
 
-## Read-only checkpoint pair triage — proposal
+## JSON integer conversion safety — proposed guard
+
+**Problem and test-first evidence:** The 16 MiB input-file bound does not limit the
+number of digits passed to Python's decimal-to-integer conversion. On a runtime
+with the interpreter's optional integer-string digit cap disabled (as on some
+older Python versions), the existing inspector accepted a 5000-digit
+synthetic `seed` token. Huge JSON integers, including values in ignored fields,
+can consume disproportionate CPU before the inspector reaches envelope validation.
+
+**Decision:** Apply a 4096-decimal-digit limit to every integer token through
+`json.loads(parse_int=...)`, before conversion. This keeps the existing JSON
+envelope, checksum, file-size cap, exit-code meanings and pair comparison;
+unusually large artificial integer fields now fail closed. The limit is
+independent of runtime defaults. This is a narrow diagnostic parsing safeguard,
+not a general safe-unpickling or resource-exhaustion proof.
+
+**Alternatives:** Relying on newer interpreter defaults leaves earlier Python
+versions/settings without a bound. Checking only `seed` and `tick` after JSON
+parsing is too late, and misses unused nested integers. A broad custom JSON
+parser would add unnecessary complexity. Revisit this limit if evidence of a
+legitimate Worldheart checkpoint requiring more than 4096 integer digits appears.
+
+## Read-only checkpoint pair triage — design
 
 **Problem:** The primary checkpoint and an interrupted-save `.wh.tmp` file
 may both need preservation, but interpreting their outer version/seed/tick
