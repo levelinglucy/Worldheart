@@ -131,6 +131,16 @@ The counterfactual probe uses `world.fork(disk_writes_enabled=False)` for both e
 
 **Unresolved risk and reconsideration:** realpath, lstat and os.replace are not a transaction. Concurrent path swaps, symlinked parents, escape checks, inode reuse, multiwriter coordination, fsync/power-loss durability, target-iPhone/Pythonista behavior and untrusted pickle remain unverified. It may be impossible to preserve hard-link *write-through* semantics while retaining safe replace-on-save with unknown additional hard-link names; preserve existing evidence and offer explicit migration instead of pretending all aliases are safe. If robust symlink publication cannot be established, default to the same explicit migration path rather than silently altering history.
 
+## Engineering investigation 012 — real-checkpoint alias recovery probe (2026-11-13; test-only)
+
+**Goal:** Test whether Worldheart's real save/load functions can be used safely *behind* a narrowly checked alias-to-direct-target migration, rather than extrapolating from the filesystem-only seven-case spike. This is an integration feasibility experiment, not an alias-enabled release candidate.
+
+**Scope:** [tests/test_alias_compatibility_probe.py](./tests/test_alias_compatibility_probe.py) creates exclusively disposable, locally generated worlds and uses a **test-only** resolver for a same-directory, relative final-component symlink. It then passes the checked direct target to actual `World.load()` and `World.save()`. It checks preservation of the symlink during resumed saves, stale target-temp refusal, external alias refusal, hard-link target refusal, and explicit copy-out recovery from a stationary hard-linked history without splitting the originals. The current default `World.load(latest.wh)` still rejects symlinks, and no production path logic is modified. Evidence is only a controlled synthetic integration; never copy a concurrently written checkpoint.
+
+**Evidence gate:** Added tests to the unmerged draft PR #10 branch. Await exact-head CI or an isolated full-suite result before claiming a passed integrated test; existing 31/31 hosted results certify the older refusal candidate only. This is not a production race, lock, directory-containment, Pythonista, power-loss, untrusted-pickle or multiwriter proof.
+
+**Next:** If integration evidence is green, consider a design that safely pins the alias resolution and target descriptor, checks the same trusted directory, and has a CLI-safe migration/refusal path for multiply-linked checkpoints. Keep the draft PR open; do not merge the refusal-only source or claim alias support is currently shipping.
+
 ## Roadmap and release gates
 
 | Stage | Intended result | Acceptance | Status |
