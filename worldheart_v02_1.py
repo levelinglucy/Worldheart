@@ -117,6 +117,44 @@ def require_direct_checkpoint_path(filename):
         )
 
 
+
+def checkpoint_target(filename):
+    """Return (direct_path, alias_binding) for a stationary trusted checkpoint.
+
+    Permit *one* final-component relative symlink to a direct, single-linked
+    regular file in the same actual directory. Absolute links, traversal,
+    chained links, hard-link targets and special files are refused. The binding
+    contains the link identity and target identity for rechecking around IO.
+    The checkpoint directory is trusted/private: this does not make rename
+    and replace race-free against another process editing that directory.
+    """
+    try:
+        info = os.lstat(filename)
+    except FileNotFoundError:
+        return filename, None
+    if not stat.S_ISLNK(info.st_mode):
+        require_direct_checkpoint_path(filename)
+        return filename, None
+
+    parent = os.path.dirname(filename) or "."
+    parent_info = os.lstat(parent)
+    if not stat.S_ISDIR(parent_info.st_mode):
+        raise OSError("Unsafe checkpoint path %r: symlinked parent directory" % filename)
+    link_text = os.readlink(filename)
+    if not link_text or link_text in (".", "..") or os.path.basename(link_text) != link_text:
+        raise OSError("Unsafe checkpoint path %r: symlink target must be a local filename" % filename)
+    target = os.path.join(parent, link_text)
+    try:
+        target_info = os.lstat(target)
+    except FileNotFoundError as exc:
+        raise OSError("Unsafe checkpoint path %r: missing alias target" % filename) from exc
+    if not stat.S_ISREG(target_info.st_mode) or target_info.st_nlink != 1:
+        raise OSError("Unsafe checkpoint path %r: alias target is not a direct single-linked regular file" % filename)
+    binding = (info.st_dev, info.st_ino, link_text,
+               target_info.st_dev, target_info.st_ino)
+    return target, binding
+
+
 def clear_screen():
     # Pythonista's console does not interpret normal ANSI clear sequences.
     # Form-feed is harmless in ordinary terminals and avoids visible "[2J[H".
@@ -776,8 +814,10 @@ class World:
             raise RuntimeError("Counterfactual fork: disk persistence is disabled")
         safe_mkdir(SAVE_DIR)
         filename = filename or os.path.join(SAVE_DIR, SAVE_FILE)
+        requested_filename = filename
+        alias_binding = None
         if replace_existing:
-            require_direct_checkpoint_path(filename)
+            filename, alias_binding = checkpoint_target(filename)
         state = pickle.dumps(self, protocol=pickle.HIGHEST_PROTOCOL)
         payload = zlib.compress(state, 6)
         envelope = {
@@ -790,6 +830,11 @@ class World:
         # An interrupted save may have left recoverable bytes in this path.
         # Never silently truncate it (or follow an existing symlink).
         temp = filename + ".tmp"
+        if alias_binding is not None and os.path.lexists(requested_filename + ".tmp"):
+            raise FileExistsError(
+                "Unresolved checkpoint temp %r; preserve and inspect it before saving"
+                % (requested_filename + ".tmp")
+            )
         try:
             with open(temp, "x", encoding="utf-8") as f:
                 json.dump(envelope, f)
@@ -798,9 +843,12 @@ class World:
                 "Unresolved checkpoint temp %r; preserve and inspect it before saving" % temp
             ) from exc
         if replace_existing:
-            # Recheck after staging: never knowingly replace an alias, special
-            # file, or multiply-linked checkpoint that appeared meanwhile.
+            # Recheck alias text/link identity AND old target identity before
+            # replacing its direct entry; never replace the alias itself.
             # A concurrent swap after this check remains outside this guarantee.
+            updated_filename, updated_binding = checkpoint_target(requested_filename)
+            if updated_filename != filename or updated_binding != alias_binding:
+                raise OSError("Unsafe checkpoint path %r: changed during save" % requested_filename)
             require_direct_checkpoint_path(filename)
             os.replace(temp, filename)
         else:
@@ -823,8 +871,8 @@ class World:
                     "Cannot publish named checkpoint exclusively on this filesystem"
                 ) from exc
             os.unlink(temp)
-        self.event("CHECKPOINT", {"file": filename})
-        return filename
+        self.event("CHECKPOINT", {"file": requested_filename})
+        return requested_filename
 
     def save_named(self, label=None):
         if not self._can_write_disk():
@@ -841,11 +889,33 @@ class World:
     @staticmethod
     def load(filename=None):
         filename = filename or os.path.join(SAVE_DIR, SAVE_FILE)
-        # Reject stable FIFOs before a blocking open and aliases before recovery.
-        # This is not race-free against another process replacing the path.
-        require_direct_checkpoint_path(filename)
-        with open(filename, "r", encoding="utf-8") as f:
-            envelope = json.load(f)
+        target, alias_binding = checkpoint_target(filename)
+        # Open without following a changed final component or blocking on a
+        # FIFO. On systems missing these flags, refuse symlinks rather than
+        # claiming safe support; direct-file compatibility remains available.
+        supports_guards = hasattr(os, "O_NOFOLLOW") and hasattr(os, "O_NONBLOCK")
+        if alias_binding is not None and not supports_guards:
+            raise OSError("Unsafe checkpoint path %r: no safe descriptor flags" % filename)
+        flags = os.O_RDONLY
+        if supports_guards:
+            flags |= os.O_NOFOLLOW | os.O_NONBLOCK
+        fd = os.open(target, flags)
+        try:
+            opened = os.fstat(fd)
+            if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+                raise OSError("Unsafe checkpoint path %r: opened nonregular or linked file" % filename)
+            if alias_binding is not None and (opened.st_dev, opened.st_ino) != alias_binding[-2:]:
+                raise OSError("Unsafe checkpoint path %r: target changed before open" % filename)
+            with os.fdopen(fd, "r", encoding="utf-8") as f:
+                fd = None  # fdopen owns and closes the descriptor
+                envelope = json.load(f)
+        finally:
+            if fd is not None:
+                os.close(fd)
+        if alias_binding is not None:
+            updated_target, updated_binding = checkpoint_target(filename)
+            if updated_target != target or updated_binding != alias_binding:
+                raise OSError("Unsafe checkpoint path %r: changed during recovery" % filename)
         payload = bytes.fromhex(envelope["payload"])
         if stable_hash(payload) != envelope["hash"]:
             raise ValueError("Checkpoint integrity failure")
@@ -1048,6 +1118,9 @@ def choose_world():
     # follows links and incorrectly treated it as a safe, empty Genesis slot.
     if os.path.lexists(latest):
         ans = input("Resume preserved universe? [Y/n; n starts anew and may replace this save] ").strip().lower()
+        if ans in ("n", "no") and os.path.islink(latest):
+            print("Aliased checkpoint preserved. Start a new world in a clean working directory.")
+            raise SystemExit(1)
         if ans not in ("n", "no"):
             try:
                 w = World.load(latest)
