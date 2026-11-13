@@ -2,10 +2,10 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
-## Unreleased — checkpoint alias and special-path refusal (proposed, not merged)
+## Unreleased — guarded trusted checkpoint symlinks (draft; not merged)
 
-- [PR #10](https://github.com/levelinglucy/Worldheart/pull/10) refuses symlinks, multiply-linked files and special filesystem objects at checkpoint load and rolling-save destinations, preventing ordinary alias-splitting replacement and stable-path FIFO blocking; valid direct single-linked checkpoints and the save format are unchanged.
-- Four synthetic regressions failed on the predecessor and passed with 31/31 checks at source/test candidate `7b3672be` ([decision 010](./DEV_NOTES.md#engineering-decision-010--refuse-checkpoint-aliases-and-blocking-special-files)). This intentionally drops checkpoint-alias loading; concurrent swaps, durability and iPhone support are not certified, so compatibility review remains open.
+- [PR #10](https://github.com/levelinglucy/Worldheart/pull/10) now proposes accepting **only** final-component, same-directory, relative symlinks that point directly to a single-linked regular checkpoint in a trusted private directory. Loading uses guarded, nonblocking/no-follow descriptors; rolling saves publish to the validated direct target and preserve the symlink. Changed symlink or target identity across I/O is refused when detected, and an explicit new Genesis refuses to overwrite aliased history.
+- FIFO, hard-linked, dangling, escaping, absolute or chained symlink paths remain refused, and stale staging evidence is preserved. Five new API/CLI-style contract tests were test-first (41 total tests: 1 expected failure and 2 expected errors at `d0460cc8`); the source-and-test candidate `58a851dd` passed 41/41 hosted Linux checks. Concurrent path swaps after checking, parent-ancestor races, multiwriter safety, power-loss durability, Pythonista behavior and untrusted pickle remain **outside** the claimed guarantee. This draft is not a release.
 
 ## Unreleased — safe observational event journal paths
 

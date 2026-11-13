@@ -68,6 +68,29 @@ class TrustedCheckpointAliasContract(unittest.TestCase):
         self.assertEqual(stale.read_bytes(), b"do not erase recovery evidence")
         self.assertTrue(self.alias.is_symlink())
 
+    def test_alias_name_temp_also_blocks_save(self):
+        self.make_alias(seed=9810)
+        before = self.target.read_bytes()
+        stale = Path(str(self.alias) + ".tmp")
+        stale.write_bytes(b"older alias temp evidence")
+        with self.assertRaises(FileExistsError):
+            worldheart.World(seed=9811).save()
+        self.assertEqual(before, self.target.read_bytes())
+        self.assertEqual(stale.read_bytes(), b"older alias temp evidence")
+        self.assertFalse(Path(str(self.target) + ".tmp").exists())
+
+    def test_alias_to_another_link_is_refused(self):
+        self.make_alias(seed=9812)
+        self.alias.unlink()
+        middle = self.data / "middle.wh"
+        middle.symlink_to(self.target.name)
+        self.alias.symlink_to(middle.name)
+        with self.assertRaisesRegex(OSError, "Unsafe checkpoint path"):
+            worldheart.World.load()
+        with self.assertRaisesRegex(OSError, "Unsafe checkpoint path"):
+            worldheart.World(seed=9813).save()
+        self.assertEqual(os.readlink(self.alias), middle.name)
+
     def test_alias_repoint_during_serialization_aborts_publication(self):
         self.make_alias(seed=9804)
         original = self.target.read_bytes()
