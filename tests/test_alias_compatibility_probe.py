@@ -70,10 +70,10 @@ class IntegratedAliasProbeTests(unittest.TestCase):
         self.make_fixture(9701)
         previous_bytes = self.target.read_bytes()
         self.link_latest()
-        # The current PR explicitly refuses this API call; migration would
-        # have to safely choose the target before reading and publishing.
-        with self.assertRaisesRegex(OSError, "Unsafe checkpoint path"):
-            worldheart.World.load(str(self.latest))
+        # A same-directory final-component relative alias is now supported on
+        # this DRAFT branch under the stationary private-directory assumption.
+        alias_restored = worldheart.World.load(str(self.latest))
+        self.assertEqual(alias_restored.seed, 9701)
         direct = prototype_private_target(self.latest)
         restored = worldheart.World.load(str(direct))
         self.assertEqual(restored.seed, 9701)
