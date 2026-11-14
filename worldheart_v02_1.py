@@ -143,6 +143,14 @@ def checkpoint_target(filename):
     link_text = os.readlink(filename)
     if not link_text or link_text in (".", "..") or os.path.basename(link_text) != link_text:
         raise OSError("Unsafe checkpoint path %r: symlink target must be a local filename" % filename)
+    # *.tmp is Worldheart's unresolved checkpoint publication evidence.
+    # A valid-looking staged envelope must not be promoted into a live alias
+    # and then overwritten by a routine rolling save.
+    if link_text.endswith(".tmp"):
+        raise OSError(
+            "Unsafe checkpoint path %r: alias target is unresolved checkpoint staging evidence"
+            % filename
+        )
     target = os.path.join(parent, link_text)
     try:
         target_info = os.lstat(target)
