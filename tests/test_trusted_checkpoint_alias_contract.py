@@ -57,6 +57,25 @@ class TrustedCheckpointAliasContract(unittest.TestCase):
         self.assertNotEqual(original, self.target.read_bytes())
         self.assertEqual(worldheart.World.load().tick, 1)
 
+    def test_alias_target_must_not_be_unresolved_staging_evidence(self):
+        # A valid checkpoint envelope can survive an interrupted publication
+        # under *.tmp. An alias must not promote that evidence to a live
+        # checkpoint and then overwrite it during a routine rolling save.
+        source = self.data / "older_world.wh"
+        worldheart.World(seed=9822).save(str(source))
+        unresolved = self.data / "older_world.wh.tmp"
+        source.rename(unresolved)
+        before = unresolved.read_bytes()
+        self.alias.symlink_to(unresolved.name)
+        with self.assertRaisesRegex(OSError, "Unsafe checkpoint path"):
+            worldheart.World.load()
+        with self.assertRaisesRegex(OSError, "Unsafe checkpoint path"):
+            worldheart.World(seed=9823).save()
+        self.assertEqual(unresolved.read_bytes(), before)
+        self.assertTrue(self.alias.is_symlink())
+        self.assertEqual(os.readlink(self.alias), unresolved.name)
+        self.assertFalse(Path(str(unresolved) + ".tmp").exists())
+
     def test_stale_target_temp_refuses_save_without_touching_history(self):
         self.make_alias(seed=9802)
         original = self.target.read_bytes()
