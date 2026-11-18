@@ -725,6 +725,11 @@ class World:
             return  # Fossil remains inspectable on the private fork only.
         stage = None
         try:
+            # Like observer journaling, fossil publication must not follow a
+            # stationary symlink in the save-directory path. Keep the fossil
+            # in memory instead of creating files in a redirected location.
+            if os.path.realpath(SAVE_DIR) != os.path.abspath(SAVE_DIR):
+                return
             safe_mkdir(SAVE_DIR)
             root = "fossil_%012d" % self.tick
             # Serialize away from final fossil names. A failed or interrupted
