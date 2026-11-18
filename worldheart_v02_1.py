@@ -118,6 +118,20 @@ def require_direct_checkpoint_path(filename):
 
 
 
+def require_checkpoint_parent_without_symlink(filename):
+    """Refuse stationary symlinks in any checkpoint parent path component.
+
+    A direct regular file reached through a symlinked ancestor is still a
+    redirected checkpoint. This is a preflight check, not a race-free lock.
+    """
+    parent = os.path.dirname(os.path.abspath(filename))
+    if os.path.realpath(parent) != parent:
+        raise OSError(
+            "Unsafe checkpoint path %r: symlinked parent or ancestor directory"
+            % filename
+        )
+
+
 def checkpoint_target(filename):
     """Return (direct_path, alias_binding) for a stationary trusted checkpoint.
 
@@ -128,6 +142,7 @@ def checkpoint_target(filename):
     The checkpoint directory is trusted/private: this does not make rename
     and replace race-free against another process editing that directory.
     """
+    require_checkpoint_parent_without_symlink(filename)
     try:
         info = os.lstat(filename)
     except FileNotFoundError:
@@ -820,8 +835,9 @@ class World:
     def save(self, filename=None, replace_existing=True):
         if not self._can_write_disk():
             raise RuntimeError("Counterfactual fork: disk persistence is disabled")
-        safe_mkdir(SAVE_DIR)
         filename = filename or os.path.join(SAVE_DIR, SAVE_FILE)
+        require_checkpoint_parent_without_symlink(filename)
+        safe_mkdir(SAVE_DIR)
         requested_filename = filename
         alias_binding = None
         if replace_existing:
@@ -885,7 +901,7 @@ class World:
     def save_named(self, label=None):
         if not self._can_write_disk():
             raise RuntimeError("Counterfactual fork: disk persistence is disabled")
-        safe_mkdir(SAVE_DIR)
+        # save() validates the full parent path before creating directories.
         if not label:
             label = "checkpoint"
         clean = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(label))[:40]
