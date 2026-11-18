@@ -124,8 +124,10 @@ def require_checkpoint_parent_without_symlink(filename):
     A direct regular file reached through a symlinked ancestor is still a
     redirected checkpoint. This is a preflight check, not a race-free lock.
     """
-    parent = os.path.dirname(os.path.abspath(filename))
-    if os.path.realpath(parent) != parent:
+    # Preserve the raw parent components for realpath(): normalising '..'
+    # first can erase an ancestor symlink that the filesystem will follow.
+    raw_parent = os.path.dirname(filename) or "."
+    if os.path.realpath(raw_parent) != os.path.abspath(raw_parent):
         raise OSError(
             "Unsafe checkpoint path %r: symlinked parent or ancestor directory"
             % filename
