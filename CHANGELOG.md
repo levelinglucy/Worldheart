@@ -2,6 +2,11 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
+## Unreleased — refuse multiply-linked event-journal appends (draft PR #14)
+
+- Keep in-memory events when the opened journal has more than one hard-link name, rather than appending to shared historical bytes. Existing single-linked regular journal behaviour and guarded symlink/FIFO refusal remain unchanged.
+- A synthetic protected-history hard-link regression failed before the guard and passed afterward in the hosted Ubuntu suite. This does not provide directory race protection, multiwriter synchronization, power-loss durability or tested Pythonista compatibility; see [PR #14](https://github.com/levelinglucy/Worldheart/pull/14).
+
 ## Unreleased — bounded checkpoint JSON integer conversion
 
 - Set an explicit 4096-digit cap on JSON integer tokens before conversion, including unknown nested fields, to avoid costly parsing on Python versions or settings without their own limit. Normal checkpoints, checksum inspection and paired tick comparisons remain unchanged; unusually enormous integer fields are refused.
