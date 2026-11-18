@@ -76,6 +76,39 @@ class TrustedCheckpointAliasContract(unittest.TestCase):
         self.assertEqual(os.readlink(self.alias), unresolved.name)
         self.assertFalse(Path(str(unresolved) + ".tmp").exists())
 
+    def test_symlinked_ancestor_refuses_load_and_both_save_modes(self):
+        # A regular immediate directory can still be reached through a
+        # symlinked ancestor. Final-component-only checks must not authorize
+        # a checkpoint read or publication through that redirected path.
+        outside = self.data / "protected_history"
+        nested = outside / "nested"
+        nested.mkdir(parents=True)
+        old = nested / worldheart.SAVE_FILE
+        worldheart.World(seed=9890).save(str(old))
+        before = old.read_bytes()
+        alias_parent = self.data / "redirect"
+        try:
+            alias_parent.symlink_to(outside.name, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("directory symlinks unavailable: %s" % exc)
+        redirected = alias_parent / "nested" / worldheart.SAVE_FILE
+        named = alias_parent / "nested" / "new_named.wh"
+        local_alias = nested / "shortcut.wh"
+        local_alias.symlink_to(worldheart.SAVE_FILE)
+
+        with self.assertRaisesRegex(OSError, "Unsafe checkpoint path"):
+            worldheart.World.load(str(redirected))
+        with self.assertRaisesRegex(OSError, "Unsafe checkpoint path"):
+            worldheart.World(seed=9891).save(str(redirected))
+        with self.assertRaisesRegex(OSError, "Unsafe checkpoint path"):
+            worldheart.World(seed=9892).save(str(named), replace_existing=False)
+        with self.assertRaisesRegex(OSError, "Unsafe checkpoint path"):
+            worldheart.World.load(str(alias_parent / "nested" / local_alias.name))
+        self.assertEqual(old.read_bytes(), before)
+        self.assertFalse(named.exists())
+        self.assertFalse(Path(str(redirected) + ".tmp").exists())
+        self.assertTrue(local_alias.is_symlink())
+
     def test_stale_target_temp_refuses_save_without_touching_history(self):
         self.make_alias(seed=9802)
         original = self.target.read_bytes()
