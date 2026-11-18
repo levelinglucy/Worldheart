@@ -199,6 +199,11 @@ class World:
             return  # Counterfactual forks keep events in memory only.
         try:
             safe_mkdir(SAVE_DIR)
+            # O_NOFOLLOW protects only EVENT_FILE, not a symlinked SAVE_DIR.
+            # Refuse stationary parent redirection rather than modifying an
+            # unrelated ordinary journal in a different directory.
+            if os.path.islink(SAVE_DIR):
+                return
             # Journal writes are best-effort, never an excuse to follow a
             # final-component symlink or wait for a named pipe's reader.
             # Without both OS guards, retain the in-memory event only.
