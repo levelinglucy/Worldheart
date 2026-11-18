@@ -6,6 +6,7 @@ Changes are listed newest first. A version number in this document does not by i
 
 - Keep in-memory events when the opened journal has more than one hard-link name, rather than appending to shared historical bytes. Existing single-linked regular journal behaviour and guarded symlink/FIFO refusal remain unchanged.
 - A synthetic protected-history hard-link regression failed before the guard and passed afterward in the hosted Ubuntu suite. This does not provide directory race protection, multiwriter synchronization, power-loss durability or tested Pythonista compatibility; see [PR #14](https://github.com/levelinglucy/Worldheart/pull/14).
+- Also refuse observer-journal disk writes through a stationary symlinked *ancestor* of the save directory, before creating directories. Tested with an external-history regression (one red test then 45/45 green on Ubuntu); intentional aliased parent paths fall back to memory-only. Parent-swap races and iOS path compatibility remain unverified.
 - Refuse observer-journal disk appends when the save-directory path itself is a symlink: `O_NOFOLLOW` alone protects only the final journal component. A separate synthetic external-directory regression was red first and then green. In-memory events remain available; deliberate directory aliases now get no observer-journal persistence. Parent-path swap races, checkpoint paths, multiwriter and iPhone compatibility are not solved.
 
 ## Unreleased — bounded checkpoint JSON integer conversion
