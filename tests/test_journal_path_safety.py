@@ -1,6 +1,6 @@
-"""Regressions for observer event journals named as unsafe filesystem objects.
+"""Regressions for observer journals and fossils on unsafe paths.
 
-Only synthetic events in disposable working directories; no user world is loaded.
+Only synthetic events and fossils in disposable directories; no user world is loaded.
 """
 import importlib.machinery
 import importlib.util
@@ -86,6 +86,106 @@ class JournalPathTests(unittest.TestCase):
         self.assertIn("ok", finished.stdout)
         self.assertTrue(journal.is_fifo())
 
+
+    @unittest.skipUnless(hasattr(os, "link"), "hard links unavailable")
+    def test_hardlinked_journal_does_not_modify_protected_history(self):
+        # A hard link shares an inode: appending journal events would mutate
+        # any other historical file bearing that inode, even without symlinks.
+        protected = Path(self.temp.name) / "protected-history.txt"
+        before = b"ORIGINAL HISTORY\\n"
+        protected.write_bytes(before)
+        journal = self.folder / worldheart.EVENT_FILE
+        try:
+            os.link(protected, journal)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("hard link unavailable: %s" % exc)
+        original_inode = protected.stat().st_ino
+
+        world = worldheart.World(seed=906)
+        world.event("TEST_EVENT", {"value": 42})
+        self.assertEqual(protected.read_bytes(), before)
+        self.assertEqual(journal.read_bytes(), before)
+        self.assertEqual(protected.stat().st_ino, original_inode)
+        self.assertEqual(journal.stat().st_ino, original_inode)
+        self.assertEqual([entry["kind"] for entry in world.events],
+                         ["GENESIS", "TEST_EVENT"])
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unavailable")
+    def test_symlinked_save_directory_does_not_modify_external_journal(self):
+        # O_NOFOLLOW applies to the final journal path component, not its
+        # parent. A redirected save directory must not append to another
+        # location's otherwise regular, single-linked historical journal.
+        external = Path(self.temp.name) / "protected-external-directory"
+        external.mkdir()
+        external_journal = external / worldheart.EVENT_FILE
+        before = b"EXTERNAL HISTORY\\n"
+        external_journal.write_bytes(before)
+        self.folder.rmdir()
+        try:
+            self.folder.symlink_to(external, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("directory symlinks unavailable: %s" % exc)
+
+        world = worldheart.World(seed=907)
+        world.event("TEST_EVENT", {"value": 42})
+        self.assertEqual(external_journal.read_bytes(), before)
+        self.assertTrue(self.folder.is_symlink())
+        self.assertEqual([entry["kind"] for entry in world.events],
+                         ["GENESIS", "TEST_EVENT"])
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unavailable")
+    def test_symlinked_ancestor_does_not_modify_external_journal(self):
+        # SAVE_DIR itself is a real directory, but one of the components
+        # leading to it redirects to an independent historical location.
+        external_parent = Path(self.temp.name) / "protected-external-parent"
+        real_save = external_parent / "actual-save"
+        real_save.mkdir(parents=True)
+        external_journal = real_save / worldheart.EVENT_FILE
+        before = b"PROTECTED ANCESTOR HISTORY\\n"
+        external_journal.write_bytes(before)
+
+        alias_parent = Path(self.temp.name) / "redirecting-parent"
+        try:
+            alias_parent.symlink_to(external_parent, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("directory symlinks unavailable: %s" % exc)
+        redirected_save = alias_parent / "actual-save"
+        self.assertFalse(os.path.islink(redirected_save))
+        self.assertTrue(os.path.islink(alias_parent))
+
+        with mock.patch.object(worldheart, "SAVE_DIR", str(redirected_save)):
+            world = worldheart.World(seed=908)
+            world.event("TEST_EVENT", {"value": 42})
+
+        self.assertEqual(external_journal.read_bytes(), before)
+        self.assertEqual([entry["kind"] for entry in world.events],
+                         ["GENESIS", "TEST_EVENT"])
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unavailable")
+    def test_symlinked_ancestor_does_not_publish_fossil_outside_save_dir(self):
+        # A fossil is an observer artifact too. A redirected ancestor must
+        # not create new names in a separate historical directory.
+        external_parent = Path(self.temp.name) / "fossil-protected-parent"
+        real_save = external_parent / "real-save"
+        real_save.mkdir(parents=True)
+        protected = real_save / "protected-history.txt"
+        protected.write_bytes(b"PRESERVE ORIGINAL\\n")
+        alias_parent = Path(self.temp.name) / "fossil-redirect-parent"
+        try:
+            alias_parent.symlink_to(external_parent, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("directory symlinks unavailable: %s" % exc)
+        redirected = alias_parent / "real-save"
+        before_names = sorted(p.name for p in real_save.iterdir())
+
+        with mock.patch.object(worldheart, "SAVE_DIR", str(redirected)):
+            world = worldheart.World(seed=909)
+            world.preserve_fossil(["synthetic anomaly"], {"marker": 1})
+
+        self.assertEqual(sorted(p.name for p in real_save.iterdir()), before_names)
+        self.assertEqual(protected.read_bytes(), b"PRESERVE ORIGINAL\\n")
+        self.assertEqual(len(world.fossils), 1)
+        self.assertIn("ANOMALY", [entry["kind"] for entry in world.events])
 
     def test_missing_os_guard_keeps_memory_and_skips_disk_journal(self):
         world = worldheart.World(seed=904)

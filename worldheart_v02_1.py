@@ -198,6 +198,12 @@ class World:
         if not self._can_write_disk():
             return  # Counterfactual forks keep events in memory only.
         try:
+            # O_NOFOLLOW protects only EVENT_FILE. Before even creating the
+            # save directory, refuse path redirects through any symlinked
+            # component (not only SAVE_DIR itself). This stationary check is
+            # conservative, not a guard against concurrent path swaps.
+            if os.path.realpath(SAVE_DIR) != os.path.abspath(SAVE_DIR):
+                return
             safe_mkdir(SAVE_DIR)
             # Journal writes are best-effort, never an excuse to follow a
             # final-component symlink or wait for a named pipe's reader.
@@ -213,8 +219,11 @@ class World:
                 0o600,
             )
             try:
-                if not stat.S_ISREG(os.fstat(fd).st_mode):
-                    return  # No writing to existing FIFOs, devices or sockets.
+                opened = os.fstat(fd)
+                if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+                    # A journal with another hard-link name shares its bytes
+                    # with that file; appending would mutate historical data.
+                    return  # Keep the event in memory; never split or alter aliases.
                 with os.fdopen(fd, "a", encoding="utf-8") as journal:
                     fd = None  # The context manager now owns this descriptor.
                     journal.write(record)
@@ -716,6 +725,11 @@ class World:
             return  # Fossil remains inspectable on the private fork only.
         stage = None
         try:
+            # Like observer journaling, fossil publication must not follow a
+            # stationary symlink in the save-directory path. Keep the fossil
+            # in memory instead of creating files in a redirected location.
+            if os.path.realpath(SAVE_DIR) != os.path.abspath(SAVE_DIR):
+                return
             safe_mkdir(SAVE_DIR)
             root = "fossil_%012d" % self.tick
             # Serialize away from final fossil names. A failed or interrupted
