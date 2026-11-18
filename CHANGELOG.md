@@ -2,12 +2,14 @@
 
 Changes are listed newest first. A version number in this document does not by itself indicate a published stable release.
 
-## Unreleased — refuse multiply-linked event-journal appends (draft PR #14)
+## Unreleased — observer journal and fossil path guards (draft PR #14)
 
 - Keep in-memory events when the opened journal has more than one hard-link name, rather than appending to shared historical bytes. Existing single-linked regular journal behaviour and guarded symlink/FIFO refusal remain unchanged.
 - A synthetic protected-history hard-link regression failed before the guard and passed afterward in the hosted Ubuntu suite. This does not provide directory race protection, multiwriter synchronization, power-loss durability or tested Pythonista compatibility; see [PR #14](https://github.com/levelinglucy/Worldheart/pull/14).
 - Also refuse observer-journal disk writes through a stationary symlinked *ancestor* of the save directory, before creating directories. Tested with an external-history regression (one red test then 45/45 green on Ubuntu); intentional aliased parent paths fall back to memory-only. Parent-swap races and iOS path compatibility remain unverified.
 - Refuse observer-journal disk appends when the save-directory path itself is a symlink: `O_NOFOLLOW` alone protects only the final journal component. A separate synthetic external-directory regression was red first and then green. In-memory events remain available; deliberate directory aliases now get no observer-journal persistence. Parent-path swap races, checkpoint paths, multiwriter and iPhone compatibility are not solved.
+
+- Block observational fossil publication through a stationary symlinked save-directory ancestor, preserving the in-memory fossil and anomaly event without creating artifacts in the redirected historical folder. Synthetic hosted regression was red (45/46) before the change and green (46/46) after it. Existing normal filesystem output remains available; intentional aliased paths get memory-only fossil records. No race, checkpoint, iPhone or durability certification.
 
 ## Unreleased — bounded checkpoint JSON integer conversion
 
