@@ -69,5 +69,34 @@ class SymlinkDotDotCheckpointPath(unittest.TestCase):
         self.assertEqual(self.target.read_bytes(), self.before)
 
 
+    def test_reject_redirected_relative_paths(self):
+        # Resolution of '..' happens after following the directory alias.
+        os.chdir(Path(self.temp.name) / "work")
+        with self.assertRaisesRegex(OSError, "Unsafe checkpoint path"):
+            worldheart.World.load("redirect/../checkpoint.wh")
+        with self.assertRaisesRegex(OSError, "Unsafe checkpoint path"):
+            worldheart.World(seed=9910).save("redirect/../checkpoint.wh")
+        with self.assertRaisesRegex(OSError, "Unsafe checkpoint path"):
+            worldheart.World(seed=9911).save(
+                "redirect/../new_named.wh", replace_existing=False
+            )
+        self.assertEqual(self.target.read_bytes(), self.before)
+        self.assertFalse(Path(str(self.target) + ".tmp").exists())
+        self.assertFalse((self.target.parent / "new_named.wh").exists())
+
+    def test_plain_relative_dotdot_still_loads_and_saves(self):
+        # Lexical '..' alone is ordinary, not evidence of a symlink.
+        os.chdir(Path(self.temp.name) / "work")
+        restored = worldheart.World.load("../protected/checkpoint.wh")
+        self.assertEqual(restored.seed, 9901)
+        self.assertEqual(self.target.read_bytes(), self.before)
+
+        filename = "../protected/ordinary_named.wh"
+        fresh = worldheart.World(seed=9912)
+        fresh.save(filename, replace_existing=False)
+        self.assertEqual(worldheart.World.load(filename).seed, 9912)
+        self.assertEqual(self.target.read_bytes(), self.before)
+
+
 if __name__ == "__main__":
     unittest.main()
