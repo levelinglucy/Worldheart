@@ -213,8 +213,11 @@ class World:
                 0o600,
             )
             try:
-                if not stat.S_ISREG(os.fstat(fd).st_mode):
-                    return  # No writing to existing FIFOs, devices or sockets.
+                opened = os.fstat(fd)
+                if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+                    # A journal with another hard-link name shares its bytes
+                    # with that file; appending would mutate historical data.
+                    return  # Keep the event in memory; never split or alter aliases.
                 with os.fdopen(fd, "a", encoding="utf-8") as journal:
                     fd = None  # The context manager now owns this descriptor.
                     journal.write(record)
