@@ -133,6 +133,34 @@ class JournalPathTests(unittest.TestCase):
         self.assertEqual([entry["kind"] for entry in world.events],
                          ["GENESIS", "TEST_EVENT"])
 
+    @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unavailable")
+    def test_symlinked_ancestor_does_not_modify_external_journal(self):
+        # SAVE_DIR itself is a real directory, but one of the components
+        # leading to it redirects to an independent historical location.
+        external_parent = Path(self.temp.name) / "protected-external-parent"
+        real_save = external_parent / "actual-save"
+        real_save.mkdir(parents=True)
+        external_journal = real_save / worldheart.EVENT_FILE
+        before = b"PROTECTED ANCESTOR HISTORY\\n"
+        external_journal.write_bytes(before)
+
+        alias_parent = Path(self.temp.name) / "redirecting-parent"
+        try:
+            alias_parent.symlink_to(external_parent, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("directory symlinks unavailable: %s" % exc)
+        redirected_save = alias_parent / "actual-save"
+        self.assertFalse(os.path.islink(redirected_save))
+        self.assertTrue(os.path.islink(alias_parent))
+
+        with mock.patch.object(worldheart, "SAVE_DIR", str(redirected_save)):
+            world = worldheart.World(seed=908)
+            world.event("TEST_EVENT", {"value": 42})
+
+        self.assertEqual(external_journal.read_bytes(), before)
+        self.assertEqual([entry["kind"] for entry in world.events],
+                         ["GENESIS", "TEST_EVENT"])
+
     def test_missing_os_guard_keeps_memory_and_skips_disk_journal(self):
         world = worldheart.World(seed=904)
         journal = self.folder / worldheart.EVENT_FILE
