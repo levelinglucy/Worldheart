@@ -1,6 +1,6 @@
-"""Regressions for observer event journals named as unsafe filesystem objects.
+"""Regressions for observer journals and fossils on unsafe paths.
 
-Only synthetic events in disposable working directories; no user world is loaded.
+Only synthetic events and fossils in disposable directories; no user world is loaded.
 """
 import importlib.machinery
 import importlib.util
