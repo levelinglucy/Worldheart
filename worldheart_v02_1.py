@@ -198,12 +198,13 @@ class World:
         if not self._can_write_disk():
             return  # Counterfactual forks keep events in memory only.
         try:
-            safe_mkdir(SAVE_DIR)
-            # O_NOFOLLOW protects only EVENT_FILE, not a symlinked SAVE_DIR.
-            # Refuse stationary parent redirection rather than modifying an
-            # unrelated ordinary journal in a different directory.
-            if os.path.islink(SAVE_DIR):
+            # O_NOFOLLOW protects only EVENT_FILE. Before even creating the
+            # save directory, refuse path redirects through any symlinked
+            # component (not only SAVE_DIR itself). This stationary check is
+            # conservative, not a guard against concurrent path swaps.
+            if os.path.realpath(SAVE_DIR) != os.path.abspath(SAVE_DIR):
                 return
+            safe_mkdir(SAVE_DIR)
             # Journal writes are best-effort, never an excuse to follow a
             # final-component symlink or wait for a named pipe's reader.
             # Without both OS guards, retain the in-memory event only.
