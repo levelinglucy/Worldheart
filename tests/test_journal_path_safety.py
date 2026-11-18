@@ -87,6 +87,29 @@ class JournalPathTests(unittest.TestCase):
         self.assertTrue(journal.is_fifo())
 
 
+    @unittest.skipUnless(hasattr(os, "link"), "hard links unavailable")
+    def test_hardlinked_journal_does_not_modify_protected_history(self):
+        # A hard link shares an inode: appending journal events would mutate
+        # any other historical file bearing that inode, even without symlinks.
+        protected = Path(self.temp.name) / "protected-history.txt"
+        before = b"ORIGINAL HISTORY\\n"
+        protected.write_bytes(before)
+        journal = self.folder / worldheart.EVENT_FILE
+        try:
+            os.link(protected, journal)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("hard link unavailable: %s" % exc)
+        original_inode = protected.stat().st_ino
+
+        world = worldheart.World(seed=906)
+        world.event("TEST_EVENT", {"value": 42})
+        self.assertEqual(protected.read_bytes(), before)
+        self.assertEqual(journal.read_bytes(), before)
+        self.assertEqual(protected.stat().st_ino, original_inode)
+        self.assertEqual(journal.stat().st_ino, original_inode)
+        self.assertEqual([entry["kind"] for entry in world.events],
+                         ["GENESIS", "TEST_EVENT"])
+
     def test_missing_os_guard_keeps_memory_and_skips_disk_journal(self):
         world = worldheart.World(seed=904)
         journal = self.folder / worldheart.EVENT_FILE
