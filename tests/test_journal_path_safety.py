@@ -110,6 +110,29 @@ class JournalPathTests(unittest.TestCase):
         self.assertEqual([entry["kind"] for entry in world.events],
                          ["GENESIS", "TEST_EVENT"])
 
+    @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unavailable")
+    def test_symlinked_save_directory_does_not_modify_external_journal(self):
+        # O_NOFOLLOW applies to the final journal path component, not its
+        # parent. A redirected save directory must not append to another
+        # location's otherwise regular, single-linked historical journal.
+        external = Path(self.temp.name) / "protected-external-directory"
+        external.mkdir()
+        external_journal = external / worldheart.EVENT_FILE
+        before = b"EXTERNAL HISTORY\\n"
+        external_journal.write_bytes(before)
+        self.folder.rmdir()
+        try:
+            self.folder.symlink_to(external, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("directory symlinks unavailable: %s" % exc)
+
+        world = worldheart.World(seed=907)
+        world.event("TEST_EVENT", {"value": 42})
+        self.assertEqual(external_journal.read_bytes(), before)
+        self.assertTrue(self.folder.is_symlink())
+        self.assertEqual([entry["kind"] for entry in world.events],
+                         ["GENESIS", "TEST_EVENT"])
+
     def test_missing_os_guard_keeps_memory_and_skips_disk_journal(self):
         world = worldheart.World(seed=904)
         journal = self.folder / worldheart.EVENT_FILE
